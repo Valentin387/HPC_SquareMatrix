@@ -40,41 +40,54 @@ void multiplyMatrices(int result[], int matrix1[], int matrix2[], int rows1, int
     }
 }
 
-void printMatrix(int matrix[], int rows, int cols) {
-	int i = 0;
+void printMatrix(int *matrix, int rows, int cols) {
+    printf("\nMatrix:\n");
+    int i = 0;
     int j = 0;
-    for ( i = 0; i < rows; i++) {
+    for (i = 0; i < rows; i++) {
+        printf("|");
         for (j = 0; j < cols; j++) {
-            printf("%d ", matrix[i * cols + j]);
+            printf(" %6d ", matrix[i * cols + j]); // Use a width of 4 for each element
+            if (j != cols - 1) {
+                printf("|");
+            }
         }
-        printf("\n");
+        printf("|\n");
     }
+    printf("\n");
 }
-
 int main() {
     int option;
     int rows1, cols1, rows2, cols2;
     int fillMethod;
     
     while (1) {
-        printf("\nMatrix Multiplication Program\n");
+        printf("\n\nMatrix Multiplication Program\n");
         printf("1) Generate new multiplication\n");
         printf("2) End program\n");
         printf("Enter your choice: ");
         scanf("%d", &option);
         
         if (option == 1) {
-            printf("Enter the dimensions (rows and columns) of the first matrix: ");
-            scanf("%dx%d", &rows1, &cols1);
-            printf("Enter the dimensions (rows and columns) of the second matrix: ");
-            scanf("%dx%d", &rows2, &cols2);
-            
-            if (cols1 != rows2) {
-                printf("Matrix dimensions are not suitable for multiplication.\n");
+            printf("Enter the dimensions (rows and columns) of the first matrix Ex: 2 3: ");
+            if (scanf("%d %d", &rows1, &cols1) != 2) {
+                printf("Invalid input for dimensions. Please enter two numbers.\n");
+                while (getchar() != '\n');  // Clear input buffer
+                continue;
+            }
+            printf("Enter the dimensions (rows and columns) of the second matrix Ex: 2 3: ");
+            if (scanf("%d %d", &rows2, &cols2) != 2) {
+                printf("Invalid input for dimensions. Please enter two numbers.\n");
+                while (getchar() != '\n');  // Clear input buffer
                 continue;
             }
             
-            printf("Choose filling method:\n");
+            if (cols1 != rows2) {
+                printf("\t\t WARNING ERROR Matrix dimensions are not suitable for multiplication.\n");
+                continue;
+            }
+            
+            printf("\n\nChoose filling method:\n");
             printf("1) Fill element by element\n");
             printf("2) Generate random values (0 to 100)\n");
             printf("Enter your choice: ");
@@ -98,7 +111,7 @@ int main() {
             printf("\nResulting Matrix:\n");
             printMatrix(&result[0][0], rows1, cols2);
         } else if (option == 2) {
-            printf("Program ended.\n");
+            printf("END OF LINE.\n");
             break;
         } else {
             printf("Invalid option. Please enter 1 or 2.\n");
