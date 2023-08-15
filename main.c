@@ -1,55 +1,58 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <stdbool.h>
+#include <time.h>
 
-//Valentín Valencia Valencia. UTP Pereira, Risaralda, Colombia
-
-void fillMatrix(int matrix[], int rows, int cols) {
-
-    srand(time(NULL));
-    int i = 0;
-    int j = 0;
-    for (i = 0; i < rows; i++) {
-        for (j = 0; j < cols; j++) {
-            matrix[i * cols + j] = rand() % 101;
-        }
+// Function to allocate memory for a square matrix
+int** allocateMatrix(int N) {
+	int i;
+    int** matrix = (int**)malloc(N * sizeof(int*));
+    for (i = 0; i < N; i++) {
+        matrix[i] = (int*)malloc(N * sizeof(int));
     }
-    
+    return matrix;
 }
 
-void multiplyMatrices(int result[], int matrix1[], int matrix2[], int rows1, int cols1, int cols2) {
-	int i = 0;
-    int j = 0;
-    int k = 0;
-    for (i = 0; i < rows1; i++) {
-        for (j = 0; j < cols2; j++) {
-            result[i * cols2 + j] = 0;
-            for (k = 0; k < cols1; k++) {
-                result[i * cols2 + j] += matrix1[i * cols1 + k] * matrix2[k * cols2 + j];
+// Function to fill a matrix with random values
+void fillMatrix(int** matrix, int N) {
+	int i;
+	int j;
+    for (i = 0; i < N; i++) {
+        for (j = 0; j < N; j++) {
+            matrix[i][j] = rand() % 10; // Filling with random values from 0 to 9
+        }
+    }
+}
+
+// Function to multiply two matrices
+int** multiplyMatrices(int** A, int** B, int N) {
+	int i;
+	int j;
+	int k;
+	
+    int** result = allocateMatrix(N);
+    for (i = 0; i < N; i++) {
+        for (j = 0; j < N; j++) {
+            result[i][j] = 0;
+            for (k = 0; k < N; k++) {
+                result[i][j] += A[i][k] * B[k][j];
             }
         }
     }
+    return result;
 }
 
-void printMatrix(int *matrix, int rows, int cols) {
-    printf("\nMatrix:\n");
-    int i = 0;
-    int j = 0;
-    for (i = 0; i < rows; i++) {
-        printf("|");
-        for (j = 0; j < cols; j++) {
-            printf(" %6d ", matrix[i * cols + j]); // Use a width of 4 for each element
-            if (j != cols - 1) {
-                printf("|");
-            }
-        }
-        printf("|\n");
+// Function to deallocate memory for a matrix
+void deallocateMatrix(int** matrix, int N) {
+	int i;
+    for (i = 0; i < N; i++) {
+        free(matrix[i]);
     }
-    printf("\n");
+    free(matrix);
 }
+
 int main(int argc, char* argv[]) {
-	if (argc != 3) {
+    if (argc != 3) {
         printf("Usage: %s N Verbose\n", argv[0]);
         return 1;
     }
@@ -58,40 +61,38 @@ int main(int argc, char* argv[]) {
     bool verbose = atoi(argv[2]);
 
     srand(time(NULL));
-    int rows1=N;
-	int cols1=N; 
-	int rows2=N;
-	int cols2=N;
+
+    int** A = allocateMatrix(N);
+    int** B = allocateMatrix(N);
     
-    int matrix1[rows1][cols1];
-    int matrix2[rows2][cols2];
-    int result[rows1][cols2];
-    
-    fillMatrix(&matrix1[0][0], rows1, cols1);
-    fillMatrix(&matrix2[0][0], rows2, cols2);
-    
-	clock_t start_time = clock();
-    
-    multiplyMatrices(&result[0][0], &matrix1[0][0], &matrix2[0][0], rows1, cols1, cols2);
-    
+    fillMatrix(A, N);
+    fillMatrix(B, N);
+
+    clock_t start_time = clock();
+
+    int** result = multiplyMatrices(A, B, N);
+
     clock_t end_time = clock();
     double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
-    
+
+    if (verbose) {
+        printf("Matrix A:\n");
+        // Print matrix A
+        
+        printf("Matrix B:\n");
+        // Print matrix B
+        
+        printf("Result Matrix:\n");
+        // Print result matrix
+    }
+
     printf("Matrix multiplication took %.6f seconds.\n", elapsed_time);
 
-    
-    if (verbose){
-    	printf("\nMatrix 1:\n");
-	    printMatrix(&matrix1[0][0], rows1, cols1);
-	    
-	    printf("\nMatrix 2:\n");
-	    printMatrix(&matrix2[0][0], rows2, cols2);
-	    
-	    printf("\nResulting Matrix:\n");
-	    printMatrix(&result[0][0], rows1, cols2);
-	}
+    deallocateMatrix(A, N);
+    deallocateMatrix(B, N);
+    deallocateMatrix(result, N);
 
-    system("PAUSE");
     return 0;
 }
+
 
