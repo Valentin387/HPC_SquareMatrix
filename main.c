@@ -19,7 +19,7 @@ void fillMatrix(int** matrix, int N) {
 	int j;
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
-            matrix[i][j] = rand() % 10; // Filling with random values from 0 to 9
+            matrix[i][j] = (int)rand() % 10; // Filling with random values from 0 to 9
         }
     }
 }
@@ -51,6 +51,23 @@ void deallocateMatrix(int** matrix, int N) {
     free(matrix);
 }
 
+void printMatrix(int** matrix, int rows, int cols) {
+    printf("\nMatrix:\n");
+    int i = 0;
+    int j = 0;
+    for (i = 0; i < rows; i++) {
+        printf("|");
+        for (j = 0; j < cols; j++) {
+            printf(" %6d ", matrix[i * cols + j]); // Use a width of 4 for each element
+            if (j != cols - 1) {
+                printf("|");
+            }
+        }
+        printf("|\n");
+    }
+    printf("\n");
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 3) {
         printf("Usage: %s N Verbose\n", argv[0]);
@@ -77,13 +94,13 @@ int main(int argc, char* argv[]) {
 
     if (verbose) {
         printf("Matrix A:\n");
-        // Print matrix A
+        printMatrix(A,N,N);
         
         printf("Matrix B:\n");
-        // Print matrix B
+        printMatrix(B,N,N);
         
         printf("Result Matrix:\n");
-        // Print result matrix
+        printMatrix(result,N,N);
     }
 
     printf("Matrix multiplication took %.6f seconds.\n", elapsed_time);
