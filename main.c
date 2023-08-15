@@ -19,7 +19,7 @@ void fillMatrix(int** matrix, int N) {
 	int j;
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
-            matrix[i][j] = (int)rand() % 10; // Filling with random values from 0 to 9
+            matrix[i][j] = rand() % 10; // Filling with random values from 0 to 9
         }
     }
 }
@@ -52,23 +52,23 @@ void deallocateMatrix(int** matrix, int N) {
 }
 
 void printMatrix(int** matrix, int rows, int cols) {
-    printf("\nMatrix:\n");
-    int i = 0;
-    int j = 0;
+	int i;
+	int j;
     for (i = 0; i < rows; i++) {
-        printf("|");
         for (j = 0; j < cols; j++) {
-            printf(" %6d ", matrix[i * cols + j]); // Use a width of 4 for each element
-            if (j != cols - 1) {
-                printf("|");
-            }
+            printf("%4d |", matrix[i][j]); // Adjust the width (4) as needed
         }
-        printf("|\n");
+        printf("\n");
+        for (j = 0; j < cols-1; j++) {
+            printf("------+"); // Print horizontal separators
+        }
+        printf("\n");
     }
-    printf("\n");
 }
 
+
 int main(int argc, char* argv[]) {
+	//prompt arguments
     if (argc != 3) {
         printf("Usage: %s N Verbose\n", argv[0]);
         return 1;
@@ -77,34 +77,46 @@ int main(int argc, char* argv[]) {
     int N = atoi(argv[1]);
     bool verbose = atoi(argv[2]);
 
+	//I initialize the random numbers
     srand(time(NULL));
 
+	//I allocate memory for the matrices
     int** A = allocateMatrix(N);
     int** B = allocateMatrix(N);
     
+    //I fill the matrices
     fillMatrix(A, N);
     fillMatrix(B, N);
-
+    
+    
+	//I write down the machine time
     clock_t start_time = clock();
-
+    
+	//I carry on the multiplication
     int** result = multiplyMatrices(A, B, N);
-
+    
+	//I write down the machine time
     clock_t end_time = clock();
+    
+    //I substract the 2 times to find out the computing duration
     double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
 
+	//printing logic
     if (verbose) {
-        printf("Matrix A:\n");
+        printf("\n\nMatrix A:\n");
         printMatrix(A,N,N);
         
-        printf("Matrix B:\n");
+        printf("\n\nMatrix B:\n");
         printMatrix(B,N,N);
         
-        printf("Result Matrix:\n");
+        printf("\n\nResult Matrix:\n");
         printMatrix(result,N,N);
     }
 
+	//Result
     printf("Matrix multiplication took %.6f seconds.\n", elapsed_time);
 
+	//I free the memory once allocated to these matrices
     deallocateMatrix(A, N);
     deallocateMatrix(B, N);
     deallocateMatrix(result, N);
