@@ -75,8 +75,8 @@ int main(int argc, char* argv[]) {
     }
 
     int N = atoi(argv[1]);
-    bool verbose = atoi(argv[2]);
-
+    int verbose = atoi(argv[2]);
+    
 	//I initialize the random numbers
     srand(time(NULL));
 
@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
     double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
 
 	//printing logic
-    if (verbose) {
+    if (verbose==1 && N<20) {
         printf("\n\nMatrix A:\n");
         printMatrix(A,N,N);
         
