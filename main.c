@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     }
 
 	//Result
-    printf("Matrix multiplication took %.6f seconds.\n", elapsed_time);
+    printf("%.6f\n", elapsed_time);
 
 	//I free the memory once allocated to these matrices
     deallocateMatrix(A, N);
