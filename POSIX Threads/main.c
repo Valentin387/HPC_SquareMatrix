@@ -24,6 +24,18 @@ void fillMatrix(int** matrix, int N) {
     }
 }
 
+void fillMatrixTest(int** matrix, int N) {
+	int i;
+	int j;
+	int cont=1;
+    for (i = 0; i < N; i++) {
+        for (j = 0; j < N; j++) {
+            matrix[i][j] =cont;
+			cont++;
+        }
+    }
+}
+
 // Function to multiply two matrices
 int** multiplyMatrices(int** A, int** B, int N) {
 	int i;
@@ -85,8 +97,8 @@ int main(int argc, char* argv[]) {
     int** B = allocateMatrix(N);
     
     //I fill the matrices
-    fillMatrix(A, N);
-    fillMatrix(B, N);
+    fillMatrixTest(A, N);
+    fillMatrixTest(B, N);
     
     
 	//I write down the machine time
