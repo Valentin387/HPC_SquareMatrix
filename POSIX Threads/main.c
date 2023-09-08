@@ -1,7 +1,23 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
+#define NUM_THREADS		2
+
+// structure for storing the data that each thread needs
+struct thread_data{
+	int thread_id; //who am I
+	int lowerLimit; //the range of values from matrix A which I'm responsible of
+	int upperLimit;
+	int Bcols; //how big are your square matrices
+	int** A; //the square matrices
+	int** B;
+	int** subResult; //where I store the result of my execution
+};
+
+//I create the as many structures of this type as threads will be I will use
+struct thread_data thread_data_array[NUM_THREADS];
 
 // Function to allocate memory for a square matrix
 int** allocateMatrix(int N) {
@@ -24,6 +40,7 @@ void fillMatrix(int** matrix, int N) {
     }
 }
 
+//deterministic matrix filling method for debugging
 void fillMatrixTest(int** matrix, int N) {
 	int i;
 	int j;
@@ -37,21 +54,39 @@ void fillMatrixTest(int** matrix, int N) {
 }
 
 // Function to multiply two matrices
-int** multiplyMatrices(int** A, int** B, int N) {
+void *multiplyMatrices(void *threadarg) {
+	//local variables for the multiplication
 	int i;
 	int j;
 	int k;
+	//I need to decode the arguments through the structure I created above
+	struct thread_data *my_data;
 	
-    int** result = allocateMatrix(N);
-    for (i = 0; i < N; i++) {
-        for (j = 0; j < N; j++) {
-            result[i][j] = 0;
-            for (k = 0; k < N; k++) {
-                result[i][j] += A[i][k] * B[k][j];
+	//bringing the arguments for this thread can work
+	my_data= (struct thread_data *) threadarg;
+	int taskID = my_data->thread_id;
+	int** A = my_data->A;
+	int** B = my_data->B;
+	int taskLowerLimit = my_data->lowerLimit;
+	int taskUpperLimit = my_data->upperLimit;
+	int Bcols = my_data->Bcols;
+	int** subResult = my_data->subResult;
+	
+	//I allocate the subMatrix that I have to return
+	int pieceOfA = taskUpperLimit - taskLowerLimit + 1;
+	subResult = allocateMatrix(pieceOfA);
+    
+    //I take into acount that both A and B have the same number of of cols than B.
+    //I will checkout row by row my assigned A matrix range
+    for (i = taskLowerLimit; i < taskUpperLimit; i++) {
+    	//I traverse the B matrix
+        for (j = 0; j < Bcols; j++) {
+            subResult[i][j] = 0;
+            for (k = 0; k < Bcols; k++) { //here it should be (k < Acols) in a general case
+                subResult[i][j] += A[i][k] * B[k][j];	//linear combination
             }
         }
     }
-    return result;
 }
 
 // Function to deallocate memory for a matrix
@@ -63,6 +98,7 @@ void deallocateMatrix(int** matrix, int N) {
     free(matrix);
 }
 
+//Function to print matrices with a nice style
 void printMatrix(int** matrix, int rows, int cols) {
 	int i;
 	int j;
@@ -78,7 +114,7 @@ void printMatrix(int** matrix, int rows, int cols) {
     }
 }
 
-
+//main function
 int main(int argc, char* argv[]) {
 	//prompt arguments
     if (argc != 3) {
@@ -88,24 +124,93 @@ int main(int argc, char* argv[]) {
 
     int N = atoi(argv[1]);
     int verbose = atoi(argv[2]);
+    int C = N / NUM_THREADS;	//quotient of N/num_threads
+    int R = N % NUM_THREADS;	//remainder of N/num_threads
     
-	//I initialize the random numbers
-    srand(time(NULL));
 
 	//I allocate memory for the matrices
     int** A = allocateMatrix(N);
     int** B = allocateMatrix(N);
+    int** result = allocateMatrix(N);
+    
+    //I initialize the random numbers
+    srand(time(NULL));
     
     //I fill the matrices
     fillMatrixTest(A, N);
     fillMatrixTest(B, N);
     
+    //thread science
+    pthread_t threads[NUM_THREADS]; //I create the threads I need
+    pthread_attr_t attr; //an argument just to specify that I need my threads to be joinable
+    void *status; // same as above
     
-	//I write down the machine time
+    //I create and keep prepared the IDs for each thread
+	int *taskIDS[NUM_THREADS];
+	int rc; //in case of an error in thread creation
+	int t;  //variable for counting threads
+    int lowerLimit; //variables for assigning which thread will work on what range of A matrix (what rows)
+    int upperLimit;
+    
+    /* Initialize and set thread detached attribute for joining*/
+   	pthread_attr_init(&attr);
+   	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    
+    //I write down the machine time
     clock_t start_time = clock();
-    
-	//I carry on the multiplication
-    int** result = multiplyMatrices(A, B, N);
+	
+	for(t=0,lowerLimit=0, upperLimit=C; t < NUM_THREADS; t++) {
+		//I instantiate a structure that will be assigned to this new thread
+		thread_data_array[t].thread_id = t;
+		thread_data_array[t].A=A;
+		thread_data_array[t].B=B;
+		thread_data_array[t].lowerLimit=lowerLimit;
+		thread_data_array[t].upperLimit=upperLimit;
+		thread_data_array[t].Bcols=N;
+		if (upperLimit+C < N){
+			upperLimit+=C;
+			lowerLimit+=C;
+		}else{
+			upperLimit+=R;
+			lowerLimit+=C;
+		}
+
+		printf("Creating thread %d\n", t);
+		
+		//in case something goes wrong
+		rc = pthread_create(&threads[t], &attr, multiplyMatrices, (void *) 
+		   &thread_data_array[t]);
+		   
+		if (rc) {
+			printf("ERROR; return code from pthread_create() is %d\n", rc);
+			exit(-1);
+		}
+	}
+	
+	
+	/* Free attribute and wait for the other threads */
+   	pthread_attr_destroy(&attr);
+    for(t=0; t<NUM_THREADS; t++) { //for every thread, I will check its homework
+      rc = pthread_join(threads[t], &status);
+      if (rc) {
+         printf("ERROR; return code from pthread_join() is %d\n", rc);
+         exit(-1);
+      }
+      //Now I need to build the final matrix based on the subMatrices that each thread has made
+      int initialIndex=thread_data_array[t].lowerLimit;
+      int finalIndex=thread_data_array[t].upperLimit;
+      int** subResult= thread_data_array[t].subResult;
+      
+      //local variables to set my final result matrix
+      int numRow;
+      int localNumRow;
+      //for every row assigned to that thread
+      for (numRow = initialIndex, localNumRow=0; numRow < finalIndex; numRow++, localNumRow++) {
+        result[numRow] = subResult[localNumRow];
+		}
+      
+      printf("Main: completed join with thread %ld having a status of %ld\n",t,status);
+   }
     
 	//I write down the machine time
     clock_t end_time = clock();
@@ -132,7 +237,8 @@ int main(int argc, char* argv[]) {
     deallocateMatrix(A, N);
     deallocateMatrix(B, N);
     deallocateMatrix(result, N);
-
+	
+	pthread_exit(NULL);
     return 0;
 }
 
