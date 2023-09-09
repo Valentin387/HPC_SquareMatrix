@@ -5,6 +5,8 @@
 #include <time.h>
 #define NUM_THREADS		2
 
+void printMatrix(int** matrix, int rows, int cols);
+
 // structure for storing the data that each thread needs
 struct thread_data{
 	int thread_id; //who am I
@@ -16,7 +18,7 @@ struct thread_data{
 	int** subResult; //where I store the result of my execution
 };
 
-//I create the as many structures of this type as threads will be I will use
+//I create as many structures of this type as threads will be I will use
 struct thread_data thread_data_array[NUM_THREADS];
 
 // Function to allocate memory for a square matrix
@@ -70,15 +72,16 @@ void *multiplyMatrices(void *threadarg) {
 	int taskLowerLimit = my_data->lowerLimit;
 	int taskUpperLimit = my_data->upperLimit;
 	int Bcols = my_data->Bcols;
-	int** subResult = my_data->subResult;
-	
-	//I allocate the subMatrix that I have to return
-	int pieceOfA = taskUpperLimit - taskLowerLimit + 1;
-	subResult = allocateMatrix(pieceOfA);
-    
+
+    int pieceOfA = taskUpperLimit - taskLowerLimit + 1;
+    int** subResult=(int**)malloc(pieceOfA * sizeof(int*));
+	for (i = 0; i < pieceOfA; i++) {
+        subResult[i] = (int*)malloc(Bcols * sizeof(int));
+    }
+
     //I take into acount that both A and B have the same number of of cols than B.
-    //I will checkout row by row my assigned A matrix range
-    for (i = taskLowerLimit; i < taskUpperLimit; i++) {
+    //I will checkout row by row, my assigned range of the A matrix
+    for (i = taskLowerLimit; i < taskUpperLimit-1; i++) {
     	//I traverse the B matrix
         for (j = 0; j < Bcols; j++) {
             subResult[i][j] = 0;
@@ -87,6 +90,11 @@ void *multiplyMatrices(void *threadarg) {
             }
         }
     }
+    my_data->subResult = subResult;
+    printf("\nSubMatrix of thread %d:\n", taskID);
+    printMatrix(subResult, pieceOfA, Bcols);
+    printf("\n");
+    pthread_exit((void *)taskID);
 }
 
 // Function to deallocate memory for a matrix
@@ -98,7 +106,7 @@ void deallocateMatrix(int** matrix, int N) {
     free(matrix);
 }
 
-//Function to print matrices with a nice style
+/*function to print matrices with a nice style*/
 void printMatrix(int** matrix, int rows, int cols) {
 	int i;
 	int j;
@@ -126,7 +134,6 @@ int main(int argc, char* argv[]) {
     int verbose = atoi(argv[2]);
     int C = N / NUM_THREADS;	//quotient of N/num_threads
     int R = N % NUM_THREADS;	//remainder of N/num_threads
-    
 
 	//I allocate memory for the matrices
     int** A = allocateMatrix(N);
@@ -167,14 +174,7 @@ int main(int argc, char* argv[]) {
 		thread_data_array[t].lowerLimit=lowerLimit;
 		thread_data_array[t].upperLimit=upperLimit;
 		thread_data_array[t].Bcols=N;
-		if (upperLimit+C < N){
-			upperLimit+=C;
-			lowerLimit+=C;
-		}else{
-			upperLimit+=R;
-			lowerLimit+=C;
-		}
-
+	
 		printf("Creating thread %d\n", t);
 		
 		//in case something goes wrong
@@ -185,31 +185,40 @@ int main(int argc, char* argv[]) {
 			printf("ERROR; return code from pthread_create() is %d\n", rc);
 			exit(-1);
 		}
+		
+		if (upperLimit+C < N){
+			upperLimit+=C;
+			lowerLimit+=C;
+		}else{
+			upperLimit+=R;
+			lowerLimit+=C;
+		}
+
 	}
 	
 	
 	/* Free attribute and wait for the other threads */
    	pthread_attr_destroy(&attr);
     for(t=0; t<NUM_THREADS; t++) { //for every thread, I will check its homework
-      rc = pthread_join(threads[t], &status);
-      if (rc) {
-         printf("ERROR; return code from pthread_join() is %d\n", rc);
-         exit(-1);
-      }
-      //Now I need to build the final matrix based on the subMatrices that each thread has made
-      int initialIndex=thread_data_array[t].lowerLimit;
-      int finalIndex=thread_data_array[t].upperLimit;
-      int** subResult= thread_data_array[t].subResult;
+        rc = pthread_join(threads[t], &status);
+        if (rc) {
+           printf("ERROR; return code from pthread_join() is %d\n", rc);
+           exit(-1);
+        }
+        //Now I need to build the final matrix based on the subMatrices that each thread has made
+        int initialIndex=thread_data_array[t].lowerLimit;
+        int finalIndex=thread_data_array[t].upperLimit;
+        int** subResult= thread_data_array[t].subResult;
       
-      //local variables to set my final result matrix
-      int numRow;
-      int localNumRow;
-      //for every row assigned to that thread
-      for (numRow = initialIndex, localNumRow=0; numRow < finalIndex; numRow++, localNumRow++) {
-        result[numRow] = subResult[localNumRow];
+	    //local variables to set my final result matrix
+	    int numRow;
+	    int localNumRow;
+	    //for every row assigned to that thread
+		for (numRow = initialIndex, localNumRow=0; numRow < finalIndex; numRow++, localNumRow++) {
+	        result[numRow] = subResult[localNumRow];
 		}
       
-      printf("Main: completed join with thread %ld having a status of %ld\n",t,status);
+      	printf("Main: completed join with thread %ld having a status of %ld\n",t,status);
    }
     
 	//I write down the machine time
