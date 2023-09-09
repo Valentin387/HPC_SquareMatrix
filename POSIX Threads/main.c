@@ -73,7 +73,9 @@ void *multiplyMatrices(void *threadarg) {
 	int taskUpperLimit = my_data->upperLimit;
 	int Bcols = my_data->Bcols;
 
+    printf("Thread %d, taskLowerLimit: %d taskUpperLimit: %d \n",taskID, taskLowerLimit, taskUpperLimit);
     int pieceOfA = taskUpperLimit - taskLowerLimit + 1;
+    printf("Thread %d, pieceOfA: %d\n",taskID, pieceOfA);
     int** subResult=(int**)malloc(pieceOfA * sizeof(int*));
 	for (i = 0; i < pieceOfA; i++) {
         subResult[i] = (int*)malloc(Bcols * sizeof(int));
@@ -166,7 +168,7 @@ int main(int argc, char* argv[]) {
     //I write down the machine time
     clock_t start_time = clock();
 	
-	for(t=0,lowerLimit=0, upperLimit=C; t < NUM_THREADS; t++) {
+	for(t=0,lowerLimit=0, upperLimit=C-1; t < NUM_THREADS; t++) {
 		//I instantiate a structure that will be assigned to this new thread
 		thread_data_array[t].thread_id = t;
 		thread_data_array[t].A=A;
@@ -186,7 +188,13 @@ int main(int argc, char* argv[]) {
 			exit(-1);
 		}
 		
-		if (upperLimit+C < N){
+		//I can only use the given amount of threads, and therefore I need to check if the next thread is
+        //the last one in order to assign all the remaining rows to it
+        if (t+1==NUM_THREADS-1){
+            upperLimit=upperLimit+C+R;
+            lowerLimit+=C;
+        }
+		else if (upperLimit+C < N){
 			upperLimit+=C;
 			lowerLimit+=C;
 		}else{
