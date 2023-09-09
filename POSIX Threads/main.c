@@ -18,7 +18,7 @@ struct thread_data{
 	int** subResult; //where I store the result of my execution
 };
 
-//I create as many structures of this type as threads will be I will use
+//I create as many structures of this type as threads there will be
 struct thread_data thread_data_array[NUM_THREADS];
 
 // Function to allocate memory for a square matrix
@@ -73,20 +73,18 @@ void *multiplyMatrices(void *threadarg) {
 	int taskUpperLimit = my_data->upperLimit;
 	int Bcols = my_data->Bcols;
 
-    printf("Thread %d, taskLowerLimit: %d taskUpperLimit: %d \n",taskID, taskLowerLimit, taskUpperLimit);
     int pieceOfA = taskUpperLimit - taskLowerLimit + 1;
-    printf("Thread %d, pieceOfA: %d\n",taskID, pieceOfA);
+    //I allocate space fo the subResult matrix
     int** subResult=(int**)malloc(pieceOfA * sizeof(int*));
 	for (i = 0; i < pieceOfA; i++) {
         subResult[i] = (int*)malloc(Bcols * sizeof(int));
     }
 
-    //I take into acount that both A and B have the same number of of cols than B.
+    //I take into account that both A and B have the same number of cols than B.
     //I will checkout row by row, my assigned range of the A matrix
-    int ai; //remember that subResult is an abstraction of A, and therefore I need to use ai and aj
+    int ai; //remember that subResult is an abstraction of A, and therefore its indexes start in 0
     int aj;
     for (ai=0,i = taskLowerLimit; i <= taskUpperLimit; ai++,i++) {
-        printf("Thread %d, I passed with i: %d and uL: %d\n", taskID, i, taskUpperLimit);
     	//I traverse the B matrix
         for (aj=0,j = 0; j < Bcols; aj++,j++) {
             subResult[ai][aj] = 0;
@@ -96,9 +94,6 @@ void *multiplyMatrices(void *threadarg) {
         }
     }
     my_data->subResult = subResult;
-    printf("\nSubMatrix of thread %d:\n", taskID);
-    printMatrix(subResult, pieceOfA, Bcols);
-    printf("\n");
     pthread_exit((void *)taskID);
 }
 
@@ -151,8 +146,8 @@ int main(int argc, char* argv[]) {
     srand(time(NULL));
     
     //I fill the matrices
-    fillMatrixTest(A, N);
-    fillMatrixTest(B, N);
+    fillMatrix(A, N);
+    fillMatrix(B, N);
     
     //thread science
     pthread_t threads[NUM_THREADS]; //I create the threads I need
@@ -182,7 +177,7 @@ int main(int argc, char* argv[]) {
 		thread_data_array[t].upperLimit=upperLimit;
 		thread_data_array[t].Bcols=N;
 	
-		printf("Creating thread %d\n", t);
+		//printf("Creating thread %d\n", t);
 		
 		//in case something goes wrong
 		rc = pthread_create(&threads[t], &attr, multiplyMatrices, (void *) 
@@ -230,8 +225,7 @@ int main(int argc, char* argv[]) {
 		for (numRow = initialIndex, localNumRow=0; numRow <= finalIndex; numRow++, localNumRow++) {
 	        result[numRow] = subResult[localNumRow];
 		}
-      
-      	printf("Main: completed join with thread %ld having a status of %ld\n",t,status);
+      	//printf("Main: completed join with thread %ld having a status of %ld\n",t,status);
    }
     
 	//I write down the machine time
