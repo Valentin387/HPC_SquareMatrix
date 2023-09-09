@@ -83,12 +83,15 @@ void *multiplyMatrices(void *threadarg) {
 
     //I take into acount that both A and B have the same number of of cols than B.
     //I will checkout row by row, my assigned range of the A matrix
-    for (i = taskLowerLimit; i < taskUpperLimit-1; i++) {
+    int ai; //remember that subResult is an abstraction of A, and therefore I need to use ai and aj
+    int aj;
+    for (ai=0,i = taskLowerLimit; i <= taskUpperLimit; ai++,i++) {
+        printf("Thread %d, I passed with i: %d and uL: %d\n", taskID, i, taskUpperLimit);
     	//I traverse the B matrix
-        for (j = 0; j < Bcols; j++) {
-            subResult[i][j] = 0;
+        for (aj=0,j = 0; j < Bcols; aj++,j++) {
+            subResult[ai][aj] = 0;
             for (k = 0; k < Bcols; k++) { //here it should be (k < Acols) in a general case
-                subResult[i][j] += A[i][k] * B[k][j];	//linear combination
+                subResult[ai][aj] += A[i][k] * B[k][j];	//linear combination
             }
         }
     }
@@ -134,6 +137,8 @@ int main(int argc, char* argv[]) {
 
     int N = atoi(argv[1]);
     int verbose = atoi(argv[2]);
+    //int N = 5;
+    //int verbose = 1;
     int C = N / NUM_THREADS;	//quotient of N/num_threads
     int R = N % NUM_THREADS;	//remainder of N/num_threads
 
@@ -222,7 +227,7 @@ int main(int argc, char* argv[]) {
 	    int numRow;
 	    int localNumRow;
 	    //for every row assigned to that thread
-		for (numRow = initialIndex, localNumRow=0; numRow < finalIndex; numRow++, localNumRow++) {
+		for (numRow = initialIndex, localNumRow=0; numRow <= finalIndex; numRow++, localNumRow++) {
 	        result[numRow] = subResult[localNumRow];
 		}
       
