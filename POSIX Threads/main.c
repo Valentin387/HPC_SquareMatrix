@@ -1,9 +1,10 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <time.h>
-#define NUM_THREADS		2
+#define NUM_THREADS		16
 
 void printMatrix(int** matrix, int rows, int cols);
 
@@ -94,7 +95,7 @@ void *multiplyMatrices(void *threadarg) {
         }
     }
     my_data->subResult = subResult;
-    pthread_exit((void *)taskID);
+    pthread_exit((void *)(intptr_t)taskID);
 }
 
 // Function to deallocate memory for a matrix
