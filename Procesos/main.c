@@ -98,6 +98,7 @@ void multiplyMatrices(struct shared_data *threadarg){
         }
     }
     my_data->subResult = subResult;
+    printMatrix(my_data->subResult,Bcols,Bcols);
 }
 
 // Function to deallocate memory for a matrix
@@ -167,8 +168,8 @@ int main(int argc, char* argv[]) {
     }
     
     //I fill the matrices
-    fillMatrix(A, N);
-    fillMatrix(B, N);
+    fillMatrixTest(A, N);
+    fillMatrixTest(B, N);
     
 	int t;  //variable for counting threads
     int lowerLimit; //variables for assigning which thread will work on what range of A matrix (what rows)
@@ -197,13 +198,10 @@ int main(int argc, char* argv[]) {
             shared_data_array[t].lowerLimit=lowerLimit;
             shared_data_array[t].upperLimit=upperLimit;
             shared_data_array[t].Bcols=N;
+            printf("after assigning values to the structure of Process %d\n", t);
         
             multiplyMatrices(my_data);
-            //printf("Creating thread %d\n", t);
-
-            // Detach the shared memory segment from the child process
-            shmdt(shared_data_array);
-        
+            printf("after the multiplication of Process %d\n", t);        
             //I can only use the given amount of processes, and therefore I need to check if the next thread is
             //the last one in order to assign all the remaining rows to it
             if (t+1==NUM_PROCESSES-1){
@@ -217,11 +215,17 @@ int main(int argc, char* argv[]) {
                 upperLimit+=R;
                 lowerLimit+=C;
             }
-	    }
+            // Detach the shared memory segment from the child process
+            //shmdt(shared_data_array);
+            exit(0); // Exit the child process
+	    }else{
+            printf("Parent: created child with ID %ld\n", (long)child_pid);
+        }
     }
 	
     for(t=0; t<NUM_PROCESSES; t++) { //for every process, I will check its homework
         wait(NULL);
+        printf("Parent: completed join with child %d\n",t);
 
         //Now I need to build the final matrix based on the subMatrices that each thread has made
         int initialIndex=shared_data_array[t].lowerLimit;
@@ -237,18 +241,13 @@ int main(int argc, char* argv[]) {
 		}
       	//printf("Main: completed join with thread %ld having a status of %ld\n",t,status);
    }
-
-    // Detach the shared memory segment from the parent process
-    shmdt(shared_data_array);
-
-    // Remove the shared memory segment (optional, use IPC_RMID carefully)
-    shmctl(shmid, IPC_RMID, NULL);
     
 	//I write down the machine time
     clock_t end_time = clock();
     
     //I substract the 2 times to find out the computing duration
     double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    printf("Elapsed time calculated: %f\n", elapsed_time);   
 
 	//printing logic
     if (verbose==1 && N<20) {
@@ -269,6 +268,12 @@ int main(int argc, char* argv[]) {
     deallocateMatrix(A, N);
     deallocateMatrix(B, N);
     deallocateMatrix(result, N);
+
+    // Detach the shared memory segment from the parent process
+    shmdt(shared_data_array);
+
+    // Remove the shared memory segment (optional, use IPC_RMID carefully)
+    shmctl(shmid, IPC_RMID, NULL);
 	
     return 0;
 }
