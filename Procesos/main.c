@@ -1,16 +1,22 @@
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <time.h>
-#define NUM_THREADS		16
+#include <sys/types.h>
+#include <unistd.h> // Include for fork()
+#include <stdint.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/wait.h>
+
+#define NUM_PROCESSES	2
 
 void printMatrix(int** matrix, int rows, int cols);
 
-// structure for storing the data that each thread needs
-struct thread_data{
-	int thread_id; //who am I
+// structure for storing the data that each process needs
+struct shared_data{
+	int process_id; //who am I
 	int lowerLimit; //the range of values from matrix A which I'm responsible of
 	int upperLimit;
 	int Bcols; //how big are your square matrices
@@ -18,9 +24,6 @@ struct thread_data{
 	int** B;
 	int** subResult; //where I store the result of my execution
 };
-
-//I create as many structures of this type as threads there will be
-struct thread_data thread_data_array[NUM_THREADS];
 
 // Function to allocate memory for a square matrix
 int** allocateMatrix(int N) {
@@ -57,17 +60,17 @@ void fillMatrixTest(int** matrix, int N) {
 }
 
 // Function to multiply two matrices
-void *multiplyMatrices(void *threadarg) {
+void multiplyMatrices(struct shared_data *threadarg){
 	//local variables for the multiplication
 	int i;
 	int j;
 	int k;
 	//I need to decode the arguments through the structure I created above
-	struct thread_data *my_data;
+	struct shared_data *my_data;
 	
 	//bringing the arguments for this thread can work
-	my_data= (struct thread_data *) threadarg;
-	int taskID = my_data->thread_id;
+	my_data= (struct shared_data *) threadarg;
+	int taskID = my_data->process_id;
 	int** A = my_data->A;
 	int** B = my_data->B;
 	int taskLowerLimit = my_data->lowerLimit;
@@ -95,7 +98,6 @@ void *multiplyMatrices(void *threadarg) {
         }
     }
     my_data->subResult = subResult;
-    pthread_exit((void *)(intptr_t)taskID);
 }
 
 // Function to deallocate memory for a matrix
@@ -135,8 +137,8 @@ int main(int argc, char* argv[]) {
     int verbose = atoi(argv[2]);
     //int N = 5;
     //int verbose = 1;
-    int C = N / NUM_THREADS;	//quotient of N/num_threads
-    int R = N % NUM_THREADS;	//remainder of N/num_threads
+    int C = N / NUM_PROCESSES;	//quotient of N/NUM_PROCESSES
+    int R = N % NUM_PROCESSES;	//remainder of N/NUM_PROCESSES
 
 	//I allocate memory for the matrices
     int** A = allocateMatrix(N);
@@ -145,53 +147,82 @@ int main(int argc, char* argv[]) {
     
     //I initialize the random numbers
     srand(time(NULL));
+
+    // Initialize and create the shared memory segment
+    int shmid;
+    struct shared_data* shared_data_array;
+
+    key_t key = ftok("shared_memory_key", 'R');
+    shmid = shmget(key, sizeof(struct shared_data) * NUM_PROCESSES, IPC_CREAT | 0666);
+    if (shmid < 0) {
+        perror("shmget");
+        exit(1);
+    }
+
+    // Attach the shared memory segment to the parent process's address space
+    shared_data_array = (struct shared_data*)shmat(shmid, NULL, 0);
+    if ((int)(intptr_t)shared_data_array == -1) {
+        perror("shmat");
+        exit(1);
+    }
     
     //I fill the matrices
     fillMatrix(A, N);
     fillMatrix(B, N);
     
-    //thread science
-    pthread_t threads[NUM_THREADS]; //I create the threads I need
-    pthread_attr_t attr; //an argument just to specify that I need my threads to be joinable
-    void *status; // same as above
-    
-    //I create and keep prepared the IDs for each thread
-	int *taskIDS[NUM_THREADS];
-	int rc; //in case of an error in thread creation
 	int t;  //variable for counting threads
     int lowerLimit; //variables for assigning which thread will work on what range of A matrix (what rows)
     int upperLimit;
     
-    /* Initialize and set thread detached attribute for joining*/
-   	pthread_attr_init(&attr);
-   	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-    
     //I write down the machine time
     clock_t start_time = clock();
 	
-	for(t=0,lowerLimit=0, upperLimit=C-1; t < NUM_THREADS; t++) {
-		//I instantiate a structure that will be assigned to this new thread
-		thread_data_array[t].thread_id = t;
-		thread_data_array[t].A=A;
-		thread_data_array[t].B=B;
-		thread_data_array[t].lowerLimit=lowerLimit;
-		thread_data_array[t].upperLimit=upperLimit;
-		thread_data_array[t].Bcols=N;
+	for(t=0,lowerLimit=0, upperLimit=C-1; t < NUM_PROCESSES; t++) {
+
+        pid_t child_pid = fork();
+
+        if (child_pid < 0) {
+            exit(1);
+        }else if (child_pid == 0) {
+        // Child process
+        // Access the shared data from shared_data_array[process_id]
+        struct shared_data* my_data = &shared_data_array[t];
+
+        // Perform matrix multiplication using my_data
+        // I instantiate a structure that will be assigned to this new thread
+		shared_data_array[t].process_id = t;
+		shared_data_array[t].A=A;
+		shared_data_array[t].B=B;
+		shared_data_array[t].lowerLimit=lowerLimit;
+		shared_data_array[t].upperLimit=upperLimit;
+		shared_data_array[t].Bcols=N;
 	
+        multiplyMatrices(my_data);
 		//printf("Creating thread %d\n", t);
-		
-		//in case something goes wrong
-		rc = pthread_create(&threads[t], &attr, multiplyMatrices, (void *) 
-		   &thread_data_array[t]);
-		   
-		if (rc) {
-			printf("ERROR; return code from pthread_create() is %d\n", rc);
-			exit(-1);
-		}
-		
+
+        // Detach the shared memory segment from the child process
+        shmdt(shared_data_array);
+
+        // Exit the child process
+        exit(0);
+        }else{
+            // Parent process
+            // Parent process continues with loop or other tasks
+        }
+
+		//I instantiate a structure that will be assigned to this new thread
+		shared_data_array[t].process_id = t;
+		shared_data_array[t].A=A;
+		shared_data_array[t].B=B;
+		shared_data_array[t].lowerLimit=lowerLimit;
+		shared_data_array[t].upperLimit=upperLimit;
+		shared_data_array[t].Bcols=N;
+
+		//printf("Creating thread %d\n", t);
+	
 		//I can only use the given amount of threads, and therefore I need to check if the next thread is
         //the last one in order to assign all the remaining rows to it
-        if (t+1==NUM_THREADS-1){
+        if (t+1==NUM_PROCESSES-1){
             upperLimit=upperLimit+C+R;
             lowerLimit+=C;
         }
@@ -205,19 +236,13 @@ int main(int argc, char* argv[]) {
 
 	}
 	
-	
-	/* Free attribute and wait for the other threads */
-   	pthread_attr_destroy(&attr);
-    for(t=0; t<NUM_THREADS; t++) { //for every thread, I will check its homework
-        rc = pthread_join(threads[t], &status);
-        if (rc) {
-           printf("ERROR; return code from pthread_join() is %d\n", rc);
-           exit(-1);
-        }
+    for(t=0; t<NUM_PROCESSES; t++) { //for every process, I will check its homework
+        wait(NULL);
+
         //Now I need to build the final matrix based on the subMatrices that each thread has made
-        int initialIndex=thread_data_array[t].lowerLimit;
-        int finalIndex=thread_data_array[t].upperLimit;
-        int** subResult= thread_data_array[t].subResult;
+        int initialIndex=shared_data_array[t].lowerLimit;
+        int finalIndex=shared_data_array[t].upperLimit;
+        int** subResult= shared_data_array[t].subResult;
       
 	    //local variables to set my final result matrix
 	    int numRow;
@@ -228,6 +253,12 @@ int main(int argc, char* argv[]) {
 		}
       	//printf("Main: completed join with thread %ld having a status of %ld\n",t,status);
    }
+
+    // Detach the shared memory segment from the parent process
+    shmdt(shared_data_array);
+
+    // Remove the shared memory segment (optional, use IPC_RMID carefully)
+    shmctl(shmid, IPC_RMID, NULL);
     
 	//I write down the machine time
     clock_t end_time = clock();
@@ -255,7 +286,6 @@ int main(int argc, char* argv[]) {
     deallocateMatrix(B, N);
     deallocateMatrix(result, N);
 	
-	pthread_exit(NULL);
     return 0;
 }
 
