@@ -182,59 +182,43 @@ int main(int argc, char* argv[]) {
         pid_t child_pid = fork();
 
         if (child_pid < 0) {
+            perror("Fork failed");
             exit(1);
         }else if (child_pid == 0) {
-        // Child process
-        // Access the shared data from shared_data_array[process_id]
-        struct shared_data* my_data = &shared_data_array[t];
+            // Child process
+            // Access the shared data from shared_data_array[process_id]
+            struct shared_data* my_data = &shared_data_array[t];
 
-        // Perform matrix multiplication using my_data
-        // I instantiate a structure that will be assigned to this new thread
-		shared_data_array[t].process_id = t;
-		shared_data_array[t].A=A;
-		shared_data_array[t].B=B;
-		shared_data_array[t].lowerLimit=lowerLimit;
-		shared_data_array[t].upperLimit=upperLimit;
-		shared_data_array[t].Bcols=N;
-	
-        multiplyMatrices(my_data);
-		//printf("Creating thread %d\n", t);
+            // Perform matrix multiplication using my_data
+            // I instantiate a structure that will be assigned to this new thread
+            shared_data_array[t].process_id = t;
+            shared_data_array[t].A=A;
+            shared_data_array[t].B=B;
+            shared_data_array[t].lowerLimit=lowerLimit;
+            shared_data_array[t].upperLimit=upperLimit;
+            shared_data_array[t].Bcols=N;
+        
+            multiplyMatrices(my_data);
+            //printf("Creating thread %d\n", t);
 
-        // Detach the shared memory segment from the child process
-        shmdt(shared_data_array);
-
-        // Exit the child process
-        exit(0);
-        }else{
-            // Parent process
-            // Parent process continues with loop or other tasks
-        }
-
-		//I instantiate a structure that will be assigned to this new thread
-		shared_data_array[t].process_id = t;
-		shared_data_array[t].A=A;
-		shared_data_array[t].B=B;
-		shared_data_array[t].lowerLimit=lowerLimit;
-		shared_data_array[t].upperLimit=upperLimit;
-		shared_data_array[t].Bcols=N;
-
-		//printf("Creating thread %d\n", t);
-	
-		//I can only use the given amount of threads, and therefore I need to check if the next thread is
-        //the last one in order to assign all the remaining rows to it
-        if (t+1==NUM_PROCESSES-1){
-            upperLimit=upperLimit+C+R;
-            lowerLimit+=C;
-        }
-		else if (upperLimit+C < N){
-			upperLimit+=C;
-			lowerLimit+=C;
-		}else{
-			upperLimit+=R;
-			lowerLimit+=C;
-		}
-
-	}
+            // Detach the shared memory segment from the child process
+            shmdt(shared_data_array);
+        
+            //I can only use the given amount of processes, and therefore I need to check if the next thread is
+            //the last one in order to assign all the remaining rows to it
+            if (t+1==NUM_PROCESSES-1){
+                upperLimit=upperLimit+C+R;
+                lowerLimit+=C;
+            }
+            else if (upperLimit+C < N){
+                upperLimit+=C;
+                lowerLimit+=C;
+            }else{
+                upperLimit+=R;
+                lowerLimit+=C;
+            }
+	    }
+    }
 	
     for(t=0; t<NUM_PROCESSES; t++) { //for every process, I will check its homework
         wait(NULL);
