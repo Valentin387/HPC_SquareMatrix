@@ -204,6 +204,12 @@ int main(int argc, char* argv[]) {
             printf("after the multiplication of Process %d\n", t);        
             //I can only use the given amount of processes, and therefore I need to check if the next thread is
             //the last one in order to assign all the remaining rows to it
+        
+            // Detach the shared memory segment from the child process
+            shmdt(shared_data_array);
+            exit(0); // Exit the child process
+	    }else{
+            printf("Parent: created child with ID %ld\n", (long)child_pid);
             if (t+1==NUM_PROCESSES-1){
                 upperLimit=upperLimit+C+R;
                 lowerLimit+=C;
@@ -215,11 +221,6 @@ int main(int argc, char* argv[]) {
                 upperLimit+=R;
                 lowerLimit+=C;
             }
-            // Detach the shared memory segment from the child process
-            //shmdt(shared_data_array);
-            exit(0); // Exit the child process
-	    }else{
-            printf("Parent: created child with ID %ld\n", (long)child_pid);
         }
     }
 	
