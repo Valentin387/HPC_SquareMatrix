@@ -22,6 +22,7 @@ struct shared_data{
 	int Bcols; //how big are your square matrices
 	int** A; //the square matrices
 	int** B;
+    int** result;
 	int** subResult; //where I store the result of my execution
 };
 
@@ -73,6 +74,7 @@ void multiplyMatrices(struct shared_data *threadarg){
 	int taskID = my_data->process_id;
 	int** A = my_data->A;
 	int** B = my_data->B;
+    int** result = my_data->result;
 	int taskLowerLimit = my_data->lowerLimit;
 	int taskUpperLimit = my_data->upperLimit;
 	int Bcols = my_data->Bcols;
@@ -99,6 +101,18 @@ void multiplyMatrices(struct shared_data *threadarg){
     }
     my_data->subResult = subResult;
     printMatrix(my_data->subResult,Bcols,Bcols);
+
+    //Now I need to build the final matrix based on the subMatrices that each thread has made
+    //local variables to set my final result matrix
+	    int numRow;
+	    int localNumRow;
+	    //for every row assigned to that thread
+    for (numRow = taskLowerLimit, localNumRow=0; numRow <= taskUpperLimit; numRow++, localNumRow++) {
+	        result[numRow] = subResult[localNumRow];
+            printf("test");
+            printMatrix(result,pieceOfA,Bcols);
+		}
+    //my_data->result = result;
 }
 
 // Function to deallocate memory for a matrix
@@ -195,6 +209,7 @@ int main(int argc, char* argv[]) {
             shared_data_array[t].process_id = t;
             shared_data_array[t].A=A;
             shared_data_array[t].B=B;
+            shared_data_array[t].result=result;
             shared_data_array[t].lowerLimit=lowerLimit;
             shared_data_array[t].upperLimit=upperLimit;
             shared_data_array[t].Bcols=N;
@@ -227,7 +242,7 @@ int main(int argc, char* argv[]) {
     for(t=0; t<NUM_PROCESSES; t++) { //for every process, I will check its homework
         wait(NULL);
         printf("Parent: completed join with child %d\n",t);
-
+    /*
         //Now I need to build the final matrix based on the subMatrices that each thread has made
         int initialIndex=shared_data_array[t].lowerLimit;
         int finalIndex=shared_data_array[t].upperLimit;
@@ -241,6 +256,7 @@ int main(int argc, char* argv[]) {
 	        result[numRow] = subResult[localNumRow];
 		}
       	//printf("Main: completed join with thread %ld having a status of %ld\n",t,status);
+    */
    }
     
 	//I write down the machine time
