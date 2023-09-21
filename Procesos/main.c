@@ -60,7 +60,7 @@ void fillMatrixTest(int** matrix, int N) {
 }
 
 // Function to multiply two matrices
-void multiplyMatrices(struct shared_data *threadarg){
+void multiplyMatrices(struct shared_data *processarg){
 	//local variables for the multiplication
 	int i;
 	int j;
@@ -68,8 +68,8 @@ void multiplyMatrices(struct shared_data *threadarg){
 	//I need to decode the arguments through the structure I created above
 	struct shared_data *my_data;
 	
-	//bringing the arguments for this thread can work
-	my_data= (struct shared_data *) threadarg;
+	//bringing the arguments for this process can work
+	my_data= (struct shared_data *) processarg;
 	int taskID = my_data->process_id;
 	int** A = my_data->A;
 	int** B = my_data->B;
@@ -98,20 +98,17 @@ void multiplyMatrices(struct shared_data *threadarg){
             }
         }
     }
-    //my_data->result = subResult;
-    //printMatrix(my_data->result,Bcols,Bcols);
 
-    //Now I need to build the final matrix based on the subMatrices that each thread has made
+    //Now I need to build the final matrix based on the subMatrices that each process has made
     //local variables to set my final result matrix
 	    int numRow;
 	    int localNumRow;
-	    //for every row assigned to that thread
+	    //for every row assigned to that PROCESS
     for (numRow = taskLowerLimit, localNumRow=0; numRow <= taskUpperLimit; numRow++, localNumRow++) {
 	        result[numRow] = subResult[localNumRow];
 	}
     printf("I am Process %d and my matrix result is:\n",taskID);
     printMatrix(my_data->result,Bcols,Bcols);
-    //my_data->result = result;
 }
 
 // Function to deallocate memory for a matrix
@@ -184,8 +181,8 @@ int main(int argc, char* argv[]) {
     fillMatrixTest(A, N);
     fillMatrixTest(B, N);
     
-	int t;  //variable for counting threads
-    int lowerLimit; //variables for assigning which thread will work on what range of A matrix (what rows)
+	int t;  //variable for counting process
+    int lowerLimit; //variables for assigning which process will work on what range of A matrix (what rows)
     int upperLimit;
     
     //I write down the machine time
@@ -200,23 +197,25 @@ int main(int argc, char* argv[]) {
             exit(1);
         }else if (child_pid == 0) {
             // Child process
-            // Access the shared data from shared_data_array[process_id]
-            struct shared_data* my_data = &shared_data_array[t];
+            // Access the shared data from shared_data_array
+            struct shared_data* my_data = shared_data_array;
 
             // Perform matrix multiplication using my_data
-            // I instantiate a structure that will be assigned to this new thread
-            shared_data_array[t].process_id = t;
-            shared_data_array[t].A=A;
-            shared_data_array[t].B=B;
-            shared_data_array[t].result=result;
-            shared_data_array[t].lowerLimit=lowerLimit;
-            shared_data_array[t].upperLimit=upperLimit;
-            shared_data_array[t].Bcols=N;
+            // I instantiate a structure that will be assigned to this new process
+            my_data->process_id = t;
+            my_data->A=A;
+            my_data->B=B;
+            my_data->result=result;
+            my_data->lowerLimit=lowerLimit;
+            my_data->upperLimit=upperLimit;
+            my_data->Bcols=N;
             printf("after assigning values to the structure of Process %d\n", t);
         
             multiplyMatrices(my_data);
-            printf("after the multiplication of Process %d\n", t);        
-            //I can only use the given amount of processes, and therefore I need to check if the next thread is
+            printf("after the multiplication of Process %d\n", t);
+            printf("\n\n Complete result matrix \n\n");
+            printMatrix(my_data->result,N,N);        
+            //I can only use the given amount of processes, and therefore I need to check if the next process is
             //the last one in order to assign all the remaining rows to it
         
             // Detach the shared memory segment from the child process
@@ -241,21 +240,6 @@ int main(int argc, char* argv[]) {
     for(t=0; t<NUM_PROCESSES; t++) { //for every process, I will check its homework
         wait(NULL);
         printf("Parent: completed join with child %d\n",t);
-    /*
-        //Now I need to build the final matrix based on the subMatrices that each thread has made
-        int initialIndex=shared_data_array[t].lowerLimit;
-        int finalIndex=shared_data_array[t].upperLimit;
-        int** subResult= shared_data_array[t].subResult;
-      
-	    //local variables to set my final result matrix
-	    int numRow;
-	    int localNumRow;
-	    //for every row assigned to that thread
-		for (numRow = initialIndex, localNumRow=0; numRow <= finalIndex; numRow++, localNumRow++) {
-	        result[numRow] = subResult[localNumRow];
-		}
-      	//printf("Main: completed join with thread %ld having a status of %ld\n",t,status);
-    */
    }
     
 	//I write down the machine time
