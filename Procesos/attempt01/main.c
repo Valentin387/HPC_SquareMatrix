@@ -15,14 +15,14 @@
 void printMatrix(int** matrix, int rows, int cols);
 
 // structure for storing the data that each process needs
-struct shared_data{
+struct taskStruct{
 	int process_id; //who am I
 	int lowerLimit; //the range of values from matrix A which I'm responsible of
 	int upperLimit;
 	int Bcols; //how big are your square matrices
 	int** A; //the square matrices
 	int** B;
-    int** result; //where I store the result of my execution
+    int** result; //where I store the result of my execution, the shared result
 };
 
 // Function to allocate memory for a square matrix
@@ -60,16 +60,16 @@ void fillMatrixTest(int** matrix, int N) {
 }
 
 // Function to multiply two matrices
-void multiplyMatrices(struct shared_data *processarg){
+void multiplyMatrices(struct taskStruct *processarg){
 	//local variables for the multiplication
 	int i;
 	int j;
 	int k;
 	//I need to decode the arguments through the structure I created above
-	struct shared_data *my_data;
+	struct taskStruct *my_data;
 	
 	//bringing the arguments for this process can work
-	my_data= (struct shared_data *) processarg;
+	my_data= (struct taskStruct *) processarg;
 	int taskID = my_data->process_id;
 	int** A = my_data->A;
 	int** B = my_data->B;
@@ -87,8 +87,9 @@ void multiplyMatrices(struct shared_data *processarg){
 
     //I take into account that both A and B have the same number of cols than B.
     //I will checkout row by row, my assigned range of the A matrix
-    int ai; //remember that subResult is an abstraction of A, and therefore its indexes start in 0
+    int ai; //remember that subReult is an abstraction of A, and therefore its indexes start in 0
     int aj;
+
     for (ai=0,i = taskLowerLimit; i <= taskUpperLimit; ai++,i++) {
     	//I traverse the B matrix
         for (aj=0,j = 0; j < Bcols; aj++,j++) {
@@ -101,12 +102,14 @@ void multiplyMatrices(struct shared_data *processarg){
 
     //Now I need to build the final matrix based on the subMatrices that each process has made
     //local variables to set my final result matrix
-	    int numRow;
-	    int localNumRow;
-	    //for every row assigned to that PROCESS
+	int numRow;
+	int localNumRow;
+	//for every row assigned to that PROCESS
     for (numRow = taskLowerLimit, localNumRow=0; numRow <= taskUpperLimit; numRow++, localNumRow++) {
 	        result[numRow] = subResult[localNumRow];
 	}
+    
+    my_data->result = result;
     printf("I am Process %d and my matrix result is:\n",taskID);
     printMatrix(my_data->result,Bcols,Bcols);
 }
@@ -154,25 +157,25 @@ int main(int argc, char* argv[]) {
 	//I allocate memory for the matrices
     int** A = allocateMatrix(N);
     int** B = allocateMatrix(N);
-    int** result = allocateMatrix(N);
+    int** shared_result;// = allocateMatrix(N);
     
     //I initialize the random numbers
     srand(time(NULL));
 
     // Initialize and create the shared memory segment
     int shmid;
-    struct shared_data* shared_data_array;
-
-    key_t key = ftok("shared_memory_key", 'R');
-    shmid = shmget(key, sizeof(struct shared_data), IPC_CREAT | 0666);
+    //struct taskStruct* my_shared_data;
+    //key_t key = ftok("shared_memory_key", 'R');
+    shmid = shmget(IPC_PRIVATE, N*N*sizeof(int), IPC_CREAT | 0666);
+    //shmid = shmget(IPC_PRIVATE, length * length * sizeof(int), IPC_CREAT | 0666);
     if (shmid < 0) {
         perror("shmget");
         exit(1);
     }
 
     // Attach the shared memory segment to the parent process's address space
-    shared_data_array = (struct shared_data*)shmat(shmid, NULL, 0);
-    if ((int)(intptr_t)shared_data_array == -1) {
+    shared_result = shmat(shmid, NULL, 0);
+    if ((int)(intptr_t)shared_result == -1) {
         perror("shmat");
         exit(1);
     }
@@ -197,29 +200,36 @@ int main(int argc, char* argv[]) {
             exit(1);
         }else if (child_pid == 0) {
             // Child process
-            // Access the shared data from shared_data_array
-            struct shared_data* my_data = shared_data_array;
+            // Access the shared data from my_shared_data
+            struct taskStruct* my_data = (struct taskStruct*)malloc(sizeof(struct taskStruct));
 
             // Perform matrix multiplication using my_data
             // I instantiate a structure that will be assigned to this new process
             my_data->process_id = t;
             my_data->A=A;
             my_data->B=B;
-            my_data->result=result;
+            my_data->result=shared_result;
             my_data->lowerLimit=lowerLimit;
             my_data->upperLimit=upperLimit;
             my_data->Bcols=N;
-            printf("after assigning values to the structure of Process %d\n", t);
+            printf("after assigning values to the structure of Process\n"
+            "- id: %d\n"
+            "- A: %p\n"
+            "- B: %p\n"
+            "- shared_result: %p\n"
+            "- lowerlimit: %d\n"
+            "- upperlimit: %d\n"
+            "- Bcols: %d\n\n", t,A,B,shared_result,lowerLimit,upperLimit,N);
         
             multiplyMatrices(my_data);
             printf("after the multiplication of Process %d\n", t);
             printf("\n\n Complete result matrix \n\n");
-            printMatrix(my_data->result,N,N);        
+            printMatrix(shared_result,N,N);        
             //I can only use the given amount of processes, and therefore I need to check if the next process is
             //the last one in order to assign all the remaining rows to it
         
             // Detach the shared memory segment from the child process
-            shmdt(shared_data_array);
+            shmdt(shared_result);
             exit(0); // Exit the child process
 	    }else{
             printf("Parent: created child with ID %ld\n", (long)child_pid);
@@ -258,7 +268,7 @@ int main(int argc, char* argv[]) {
         printMatrix(B,N,N);
         
         printf("\n\nResult Matrix:\n");
-        printMatrix(result,N,N);
+        printMatrix(shared_result,N,N);
     }
 
 	//Result
@@ -267,10 +277,10 @@ int main(int argc, char* argv[]) {
 	//I free the memory once allocated to these matrices
     deallocateMatrix(A, N);
     deallocateMatrix(B, N);
-    deallocateMatrix(result, N);
+    //deallocateMatrix(shared_result, N);
 
     // Detach the shared memory segment from the parent process
-    shmdt(shared_data_array);
+    //shmdt(my_shared_data);
 
     // Remove the shared memory segment (optional, use IPC_RMID carefully)
     shmctl(shmid, IPC_RMID, NULL);
