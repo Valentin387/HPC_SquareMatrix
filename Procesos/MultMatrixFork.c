@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
     double elapsed_time;
     clock_gettime(CLOCK_MONOTONIC, &start);
     //NUM_PROCESSES
-    int num_processes = 2;
+    int num_processes = 16;
 
     int length = atoi(argv[1]);
     int max_number = 100;
