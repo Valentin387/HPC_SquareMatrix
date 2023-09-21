@@ -22,8 +22,7 @@ struct shared_data{
 	int Bcols; //how big are your square matrices
 	int** A; //the square matrices
 	int** B;
-    int** result;
-	int** subResult; //where I store the result of my execution
+    int** result; //where I store the result of my execution
 };
 
 // Function to allocate memory for a square matrix
@@ -99,8 +98,8 @@ void multiplyMatrices(struct shared_data *threadarg){
             }
         }
     }
-    my_data->subResult = subResult;
-    printMatrix(my_data->subResult,Bcols,Bcols);
+    //my_data->result = subResult;
+    //printMatrix(my_data->result,Bcols,Bcols);
 
     //Now I need to build the final matrix based on the subMatrices that each thread has made
     //local variables to set my final result matrix
@@ -109,9 +108,9 @@ void multiplyMatrices(struct shared_data *threadarg){
 	    //for every row assigned to that thread
     for (numRow = taskLowerLimit, localNumRow=0; numRow <= taskUpperLimit; numRow++, localNumRow++) {
 	        result[numRow] = subResult[localNumRow];
-            printf("test");
-            printMatrix(result,pieceOfA,Bcols);
-		}
+	}
+    printf("I am Process %d and my matrix result is:\n",taskID);
+    printMatrix(my_data->result,Bcols,Bcols);
     //my_data->result = result;
 }
 
@@ -168,7 +167,7 @@ int main(int argc, char* argv[]) {
     struct shared_data* shared_data_array;
 
     key_t key = ftok("shared_memory_key", 'R');
-    shmid = shmget(key, sizeof(struct shared_data) * NUM_PROCESSES, IPC_CREAT | 0666);
+    shmid = shmget(key, sizeof(struct shared_data), IPC_CREAT | 0666);
     if (shmid < 0) {
         perror("shmget");
         exit(1);
