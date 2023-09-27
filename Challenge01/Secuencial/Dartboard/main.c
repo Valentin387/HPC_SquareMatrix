@@ -4,7 +4,7 @@
 #include <time.h>
 
 int main() {
-    int n = 3000; // Number of throws
+    int n = 3000; // Number of throws - parameter
     int t = 0; // Number of hits
 
     //printf("Enter the number of throws: ");
