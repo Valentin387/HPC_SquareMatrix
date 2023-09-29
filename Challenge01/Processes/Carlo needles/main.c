@@ -11,6 +11,8 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#define NUM_PROCESSES 2
+
 // Define a structure to represent the floor
 struct Floor
 {
@@ -46,27 +48,75 @@ int cross_line(struct Needle needle, struct Floor floor)
 // Function to estimate the probability of a needle crossing a line
 double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, double L)
 {
-    int nb_crosses = 0;
+    int C = nb_tosses / NUM_PROCESSES;	//quotient of N/num_threads
+    int R = nb_tosses % NUM_PROCESSES;	//remainder of N/num_threads
+
+    int shmid;
+    int lowerLimit=0;
+    int upperLimit=C;
+    int *nb_crosses = 0;
     int t;
 
-    for (t = 0; t < nb_tosses; t++)
-    {
-        struct Needle needle = toss_needle(L, floor);
-        if (cross_line(needle, floor))
-        {
-            nb_crosses++;
-        }
+    shmid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0666);
+    if (shmid < 0) {
+        perror("shmget");
+        exit(1);
     }
 
+    nb_crosses = (int *)shmat(shmid, NULL, 0);
+
+    int i;
+    for (i = 0; i < NUM_PROCESSES; i++) {
+        pid_t pid = fork();
+
+        if(pid < 0){
+            printf("Error al crear el proceso hijo.\n");
+            return 1;
+        }
+        if (pid == 0) {  //Proceso Hijo
+            for (t = lowerLimit; t < upperLimit; t++)
+            {
+                struct Needle needle = toss_needle(L, floor);
+                if (cross_line(needle, floor))
+                {
+                    (*nb_crosses++);
+                    printf("%d \n",(*nb_crosses));
+                    
+                }
+            }
+            shmdt(nb_crosses);//Libera Memoria compartida
+            exit(0);
+        }else{
+            //I can only use the given amount of threads, and therefore I need to check if the next thread is
+            //the last one in order to assign all the remaining rows to it
+            if (t+1==NUM_PROCESSES-1){
+                upperLimit=upperLimit+C+R;
+                lowerLimit+=C;
+            }
+            else if (upperLimit+C < nb_tosses){
+                upperLimit+=C;
+                lowerLimit+=C;
+            }else{
+                upperLimit+=R;
+                lowerLimit+=C;
+            }
+        }
+    }
+    
+    for (i = 0; i < NUM_PROCESSES; i++) {
+        wait(NULL);
+    }
+
+    shmctl(shmid, IPC_RMID, NULL);//Libera memoria compartida
+    printf("%d \n",(*nb_crosses));
+
     // Return the fraction of needles that cross a line
-    return (double)nb_crosses / nb_tosses;
+    return (double)*nb_crosses / nb_tosses;
 }
 
 int main(int argc, char *argv[])
 {                      // floor, L, nb_tosses
     srand(time(NULL)); // Seed the random number generator with the current time
-
-    int numProcesses = 2;
 
     struct Floor floor;
     floor.l = 2; // Set the distance between parallel lines - parameter
@@ -74,14 +124,6 @@ int main(int argc, char *argv[])
     double L = 1; // Set the length of the needle - parameter
 
     int nb_tosses = atoi(argv[1]); // Set the number of needle tosses - parameter
-
-    int C = nb_tosses / numProcesses;	//quotient of N/num_threads
-    int R = nb_tosses % numProcesses;	//remainder of N/num_threads
-
-    int shmid;
-    int lowerLimit;
-    int upperLimit;
-    int *shared_result;
 
     // I write down the machine time
     clock_t start_time = clock();
