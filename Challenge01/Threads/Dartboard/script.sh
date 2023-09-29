@@ -2,7 +2,7 @@
 rm times2.doc
 for j in {1..10}
 do
-for i in 100 500 800 900 1000 2000
+for i in 1000 20000 3000000 500000000 800000000
 do
 ./ExeValentin $i 0 >> timesValentin.doc
 done
