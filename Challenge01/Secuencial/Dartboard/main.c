@@ -3,14 +3,17 @@
 #include <math.h>
 #include <time.h>
 
-int main() {
-    int n = 3000; // Number of throws - parameter
+int main(int argc, char *argv[]) {
+    int n = atoi(argv[1]); // Number of throws - parameter
     int t = 0; // Number of hits
 
     //printf("Enter the number of throws: ");
     //scanf("%d", &n);
 
     srand(time(NULL)); // Seed the random number generator with the current time
+
+    // I write down the machine time
+    clock_t start_time = clock();
 
     int i;
     for (i = 0; i < n; i++) {
@@ -24,9 +27,15 @@ int main() {
         }
     }
 
+    // I write down the machine time
+    clock_t end_time = clock();
+
+    // I substract the 2 times to find out the computing duration
+    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+
     double pi_approximation = 4.0 * (double)t / n; // Approximate pi using the hits and throws
 
-    printf("Approximated value of pi: %lf\n", pi_approximation);
+    printf("Approximated value of pi: %lf Time: %.6f\n", pi_approximation, elapsed_time);
 
     return 0;
 }
