@@ -64,11 +64,11 @@ int main(int argc, char *argv[])
     srand(time(NULL)); // Seed the random number generator with the current time
 
     struct Floor floor;
-    floor.l = atoi(argv[1]); // Set the distance between parallel lines - parameter
+    floor.l = 2; // Set the distance between parallel lines - parameter
 
-    double L = atoi(argv[2]); // Set the length of the needle - parameter
+    double L = 1; // Set the length of the needle - parameter
 
-    int nb_tosses = atoi(argv[3]); // Set the number of needle tosses - parameter
+    int nb_tosses = atoi(argv[1]); // Set the number of needle tosses - parameter
 
     // I write down the machine time
     clock_t start_time = clock();
