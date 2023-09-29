@@ -3,6 +3,9 @@
 #include <stdbool.h>
 #include <math.h>
 #include <time.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/shm.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -63,12 +66,22 @@ int main(int argc, char *argv[])
 {                      // floor, L, nb_tosses
     srand(time(NULL)); // Seed the random number generator with the current time
 
+    int numProcesses = 2;
+
     struct Floor floor;
-    floor.l = atoi(argv[1]); // Set the distance between parallel lines - parameter
+    floor.l = 2; // Set the distance between parallel lines - parameter
 
-    double L = atoi(argv[2]); // Set the length of the needle - parameter
+    double L = 1; // Set the length of the needle - parameter
 
-    int nb_tosses = atoi(argv[3]); // Set the number of needle tosses - parameter
+    int nb_tosses = atoi(argv[1]); // Set the number of needle tosses - parameter
+
+    int C = nb_tosses / numProcesses;	//quotient of N/num_threads
+    int R = nb_tosses % numProcesses;	//remainder of N/num_threads
+
+    int shmid;
+    int lowerLimit;
+    int upperLimit;
+    int *shared_result;
 
     // I write down the machine time
     clock_t start_time = clock();
