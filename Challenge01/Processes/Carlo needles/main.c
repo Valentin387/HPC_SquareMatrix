@@ -51,19 +51,20 @@ double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, doub
     int C = nb_tosses / NUM_PROCESSES;	//quotient of N/num_threads
     int R = nb_tosses % NUM_PROCESSES;	//remainder of N/num_threads
 
+    srand(time(NULL)); // Seed the rand
     int shmid;
     int lowerLimit=0;
     int upperLimit=C;
-    int *nb_crosses = 0;
+    double nb_crosses[NUM_PROCESSES]; // Use an array of type double
     int t;
 
-    shmid = shmget(IPC_PRIVATE, sizeof(int), IPC_CREAT | 0666);
+    shmid = shmget(IPC_PRIVATE, NUM_PROCESSES * sizeof(double), IPC_CREAT | 0666);
     if (shmid < 0) {
         perror("shmget");
         exit(1);
     }
 
-    nb_crosses = (int *)shmat(shmid, NULL, 0);
+    double *shared_nb_crosses = (double *)shmat(shmid, NULL, 0);
 
     int i;
     for (i = 0; i < NUM_PROCESSES; i++) {
@@ -74,17 +75,20 @@ double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, doub
             return 1;
         }
         if (pid == 0) {  //Proceso Hijo
+            double local_nb_crosses = 0; // Each process has its local count
+
             for (t = lowerLimit; t < upperLimit; t++)
             {
                 struct Needle needle = toss_needle(L, floor);
                 if (cross_line(needle, floor))
                 {
-                    (*nb_crosses++);
-                    printf("%d \n",(*nb_crosses));
-                    
+                    local_nb_crosses++;
+                    //printf("%f \n",local_nb_crosses);
                 }
             }
-            shmdt(nb_crosses);//Libera Memoria compartida
+            printf("%f \n",local_nb_crosses);
+            shared_nb_crosses[i] = local_nb_crosses; // Store the local count in the shared array
+            shmdt(shared_nb_crosses);  
             exit(0);
         }else{
             //I can only use the given amount of threads, and therefore I need to check if the next thread is
@@ -107,16 +111,24 @@ double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, doub
         wait(NULL);
     }
 
-    shmctl(shmid, IPC_RMID, NULL);//Libera memoria compartida
-    printf("%d \n",(*nb_crosses));
+    // Sum all the local counts from different processes
+    double total_nb_crosses = 0;
+    for (i = 0; i < NUM_PROCESSES; i++)
+    {
+        total_nb_crosses += shared_nb_crosses[i];
+    }
+
+
+    shmctl(shmid, IPC_RMID, NULL); // Release shared memory
+    printf("%f \n",total_nb_crosses);
 
     // Return the fraction of needles that cross a line
-    return (double)*nb_crosses / nb_tosses;
+    return (double)total_nb_crosses / nb_tosses;
 }
 
 int main(int argc, char *argv[])
 {                      // floor, L, nb_tosses
-    srand(time(NULL)); // Seed the random number generator with the current time
+    //srand(time(NULL)); // Seed the random number generator with the current time
 
     struct Floor floor;
     floor.l = 2; // Set the distance between parallel lines - parameter
