@@ -11,7 +11,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#define NUM_PROCESSES 2
+#define NUM_PROCESSES 8
 
 // Define a structure to represent the floor
 struct Floor
@@ -51,7 +51,6 @@ double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, doub
     int C = nb_tosses / NUM_PROCESSES;	//quotient of N/num_threads
     int R = nb_tosses % NUM_PROCESSES;	//remainder of N/num_threads
 
-    srand(time(NULL)); // Seed the rand
     int shmid;
     int lowerLimit=0;
     int upperLimit=C;
@@ -67,33 +66,46 @@ double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, doub
     double *shared_nb_crosses = (double *)shmat(shmid, NULL, 0);
 
     int i;
+    pid_t pid;
     for (i = 0; i < NUM_PROCESSES; i++) {
-        pid_t pid = fork();
+        pid = fork();
 
         if(pid < 0){
             printf("Error al crear el proceso hijo.\n");
             return 1;
         }
         if (pid == 0) {  //Proceso Hijo
+            unsigned int seed = time(NULL) ^ getpid();
+            srand(seed); // Seed the random number generator with the current time
             double local_nb_crosses = 0; // Each process has its local count
 
             for (t = lowerLimit; t < upperLimit; t++)
             {
+                //printf("Process: %d toss: %d rand test: %f\n",i,t,(double)rand());
                 struct Needle needle = toss_needle(L, floor);
                 if (cross_line(needle, floor))
                 {
                     local_nb_crosses++;
-                    //printf("%f \n",local_nb_crosses);
+                    //printf("Process: %d - local_nb_crosses: %f\n",i,local_nb_crosses);
                 }
             }
-            printf("%f \n",local_nb_crosses);
-            shared_nb_crosses[i] = local_nb_crosses; // Store the local count in the shared array
+
+            //printf("Process: %d\nlowerLimit: %d\nupperLimit: %d\nlocal_nb_crosses: %f\n",i,lowerLimit,upperLimit,local_nb_crosses);
+            shared_nb_crosses[i] = local_nb_crosses; // Store the local count in the shared array}
+            //printf("shared_nb_crosses[%d]: %f \n",i,local_nb_crosses);
+
+            //int h;
+            //I print the result shared array to check its state
+            //for (h = 0; h < NUM_PROCESSES; h++) {
+                //printf("\t Element %d: %lf\n", h, shared_nb_crosses[h]);
+            //}
+
             shmdt(shared_nb_crosses);  
-            exit(0);
+            exit(42);
         }else{
             //I can only use the given amount of threads, and therefore I need to check if the next thread is
             //the last one in order to assign all the remaining rows to it
-            if (t+1==NUM_PROCESSES-1){
+            if (i+1==NUM_PROCESSES-1){
                 upperLimit=upperLimit+C+R;
                 lowerLimit+=C;
             }
@@ -120,7 +132,7 @@ double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, doub
 
 
     shmctl(shmid, IPC_RMID, NULL); // Release shared memory
-    printf("%f \n",total_nb_crosses);
+    //printf("total: %f \n",total_nb_crosses);
 
     // Return the fraction of needles that cross a line
     return (double)total_nb_crosses / nb_tosses;
@@ -128,8 +140,6 @@ double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, doub
 
 int main(int argc, char *argv[])
 {                      // floor, L, nb_tosses
-    //srand(time(NULL)); // Seed the random number generator with the current time
-
     struct Floor floor;
     floor.l = 2; // Set the distance between parallel lines - parameter
 
