@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <pthread.h>
-#define NUM_THREADS		2
+#define NUM_THREADS		16
 
 // structure for storing the data that each thread needs
 struct thread_data{

@@ -6,7 +6,7 @@
 #include <sys/wait.h>
 #include <sys/shm.h>
 
-#define NUM_PROCESSES 4
+#define NUM_PROCESSES 16
 
 int main(int argc, char *argv[]) {
     int nb_tosses = atoi(argv[1]); // Number of throws - parameter

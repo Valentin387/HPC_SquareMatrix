@@ -11,7 +11,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#define NUM_PROCESSES 8
+#define NUM_PROCESSES 16
 
 // Define a structure to represent the floor
 struct Floor

@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
 
     // printf("Expected probability: %lf\n", 2 * L / (M_PI * floor.l));
     printf("Estimated probability: %lf Time: %.6f\n", 1 / probability, elapsed_time);
-    printf("\nEnd of line");
+    //printf("\nEnd of line");
 
     return 0;
 }
