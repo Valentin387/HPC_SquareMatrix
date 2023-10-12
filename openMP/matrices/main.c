@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
+#include <omp.h>
 
 // Function to allocate memory for a square matrix
 int** allocateMatrix(int N) {
@@ -25,12 +26,16 @@ void fillMatrix(int** matrix, int N) {
 }
 
 // Function to multiply two matrices
-int** multiplyMatrices(int** A, int** B, int N) {
+int** multiplyMatrices(int** A, int** B, int N, int num_threads) {
 	int i;
 	int j;
 	int k;
-	
+	omp_set_num_threads(num_threads);
+
     int** result = allocateMatrix(N);
+    
+    #pragma omp parallel for private(i, j, k)
+
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
             result[i][j] = 0;
@@ -69,13 +74,14 @@ void printMatrix(int** matrix, int rows, int cols) {
 
 int main(int argc, char* argv[]) {
 	//prompt arguments
-    if (argc != 3) {
-        printf("Usage: %s N Verbose\n", argv[0]);
+    if (argc != 4) {
+        printf("Usage: %s N Verbose num_threads\n", argv[0]);
         return 1;
     }
 
     int N = atoi(argv[1]);
     int verbose = atoi(argv[2]);
+    int num_threads = atoi(argv[3]); // Get the number of threads from the command line
     
 	//I initialize the random numbers
     srand(time(NULL));
@@ -93,7 +99,7 @@ int main(int argc, char* argv[]) {
     clock_t start_time = clock();
     
 	//I carry on the multiplication
-    int** result = multiplyMatrices(A, B, N);
+    int** result = multiplyMatrices(A, B, N, num_threads);
     
 	//I write down the machine time
     clock_t end_time = clock();
