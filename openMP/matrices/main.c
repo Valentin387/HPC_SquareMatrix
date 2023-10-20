@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <time.h>
 #include <omp.h>
+double start; 
+double end;
 
 // Function to allocate memory for a square matrix
 int** allocateMatrix(int N) {
@@ -96,16 +98,18 @@ int main(int argc, char* argv[]) {
     
     
 	//I write down the machine time
-    clock_t start_time = clock();
+    //clock_t start_time = clock();
+    start = omp_get_wtime(); 
     
 	//I carry on the multiplication
     int** result = multiplyMatrices(A, B, N, num_threads);
     
 	//I write down the machine time
-    clock_t end_time = clock();
+    //clock_t end_time = clock();
+    end = omp_get_wtime(); 
     
     //I substract the 2 times to find out the computing duration
-    double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    //double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
 
 	//printing logic
     if (verbose==1 && N<20) {
@@ -120,7 +124,8 @@ int main(int argc, char* argv[]) {
     }
 
 	//Result
-    printf("%.6f\n", elapsed_time);
+    //printf("%.6f\n", elapsed_time);
+    printf("%.6f\n", end-start);
 
 	//I free the memory once allocated to these matrices
     deallocateMatrix(A, N);
