@@ -50,7 +50,7 @@ double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, doub
 
     omp_set_num_threads(num_threads);
     int nb_crosses = 0;
-    #pragma omp parallel for private(t)
+    #pragma omp parallel for reduction(+:nb_crosses)
 
     for (t = 0; t < nb_tosses; t++)
     {

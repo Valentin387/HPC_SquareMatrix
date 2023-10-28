@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     start = omp_get_wtime();
 
     int i;
-    #pragma omp parallel for private(i)
+    #pragma omp parallel for reduction(+:t)
 
     for (i = 0; i < n; i++) {
         double x = (double)rand() / RAND_MAX; // Random x-coordinate between 0 and 1
