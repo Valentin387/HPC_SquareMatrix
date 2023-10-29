@@ -8,7 +8,7 @@ double end;
 
 int main(int argc, char *argv[]) {
     //prompt arguments
-    if (argc != 2) {
+    if (argc != 3) {
         printf("Usage: %s N num_threads\n", argv[0]);
         return 1;
     }
