@@ -68,7 +68,7 @@ double estimate_prob_needle_crosses_line(int nb_tosses, struct Floor floor, doub
 int main(int argc, char *argv[])
 {                      // floor, L, nb_tosses
     //prompt arguments
-    if (argc != 2) {
+    if (argc != 3) {
         printf("Usage: %s N num_threads\n", argv[0]);
         return 1;
     }
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     //clock_t start_time = clock();
     start = omp_get_wtime(); 
 
-    double probability = estimate_prob_needle_crosses_line(nb_tosses, floor, L);
+    double probability = estimate_prob_needle_crosses_line(nb_tosses, floor, L, num_threads);
     // using the formula, this probability should be pi powered to -1
 
     //I write down the machine time
