@@ -192,11 +192,11 @@ int main(int argc, char* argv[]) {
     multiplyMatrices(A, B, localResult, startRow, endRow, N);
     printf("Rank %d: after multiplication \n", rank);
 
-    printf("Rank %d: localResult:\n", rank);
-    printMatrix(localResult, localRows, N);
+    //printf("Rank %d: localResult:\n", rank);
+    //printMatrix(localResult, localRows, N);
 
     // Use a barrier to synchronize processes
-    MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Barrier(MPI_COMM_WORLD);
 
     // Gather the partial results from all processes to the master process
     MPI_Gather(&(localResult[0][0]), localRows * N, MPI_INT,
