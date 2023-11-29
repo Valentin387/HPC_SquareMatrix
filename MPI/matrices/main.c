@@ -68,6 +68,14 @@ int main(int argc, char *argv[]) {
     int verbose = atoi(argv[2]);
     int max_number = 100;
 
+    if ( length < size){
+        if (rank == 0) {
+            fprintf(stderr, "Error: matrix size must be equal or greater than the number of processes\n");
+        }
+        MPI_Finalize();
+        return 1;
+    }
+
     srand(time(NULL));
 
     int *matrixA = (int *)malloc(length * length * sizeof(int));
@@ -86,7 +94,7 @@ int main(int argc, char *argv[]) {
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    clock_gettime(CLOCK_MONOTONIC, &start);
+    //clock_gettime(CLOCK_MONOTONIC, &start);
 
     // All processes read matrices A and B from files
     read_matrix_from_file(matrixA, length, "/home/cluser/wd/matrixA.bin");
@@ -95,8 +103,12 @@ int main(int argc, char *argv[]) {
     int rows_per_process = length / size;
     int extra_rows = length % size;
     int start_row = rank * rows_per_process;
-    int end_row = start_row + rows_per_process + (rank < size - 1 ? 0 : extra_rows);
+    int end_row = start_row + rows_per_process + (rank == size - 1 ? extra_rows : 0);
     printf("Rank %d: start_row = %d, end_row = %d\n", rank, start_row, end_row);
+
+    if (rank == 0){
+        clock_gettime(CLOCK_MONOTONIC, &start);
+    }
 
     for (int i = start_row; i < end_row; i++) {
         for (int j = 0; j < length; j++) {
@@ -107,6 +119,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    //mostrarMatriz(result, length);
     MPI_Barrier(MPI_COMM_WORLD);
 
     // Gather the results to the root process
@@ -114,7 +127,19 @@ int main(int argc, char *argv[]) {
         gathered_result = (int *)malloc(length * length * sizeof(int));
     }
 
-    MPI_Gather(result + start_row * length, rows_per_process * length, MPI_INT, gathered_result, rows_per_process * length, MPI_INT, 0, MPI_COMM_WORLD);
+    // Calculate the number of rows for the current process
+    int local_rows = (rank == size - 1) ? rows_per_process + extra_rows : rows_per_process;
+
+    MPI_Gather(
+        result + start_row * length, 
+        local_rows * length, 
+        MPI_INT, 
+        gathered_result, 
+        local_rows * length, 
+        MPI_INT, 
+        0, 
+        MPI_COMM_WORLD
+        );
 
     if (rank == 0) {
         clock_gettime(CLOCK_MONOTONIC, &end);
@@ -122,7 +147,7 @@ int main(int argc, char *argv[]) {
 
         printf("Time: %f seconds\n", elapsed_time);
 
-        if (verbose && length < 15) {
+        if (verbose && length < 20) {
             printf("Matrix A:\n");
             mostrarMatriz(matrixA, length);
 
