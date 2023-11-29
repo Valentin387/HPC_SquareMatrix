@@ -91,6 +91,7 @@ void multiplyMatrices(int** A, int** B, int** result, int startRow, int endRow, 
         for (j = 0; j < N; j++) {
             result[i][j] = 0;
             for (k = 0; k < N; k++) {
+                printf("i=%d, j=%d, k=%d\n", i, j, k);
                 result[i][j] += A[i][k] * B[k][j];
             }
         }
@@ -106,6 +107,8 @@ int main(int argc, char* argv[]) {
     int N = atoi(argv[1]);
     int verbose = atoi(argv[2]);
 
+    srand(time(NULL)); // Use current time as seed for random generator
+
     // Initialize MPI
     MPI_Init(&argc, &argv);
 
@@ -113,6 +116,9 @@ int main(int argc, char* argv[]) {
     int numProcesses, rank;
     MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    //MPI_Barrier(MPI_COMM_WORLD);
+    //printf("Rank %d: Number of processes: %d\n", rank, numProcesses);
 
     // Calculate the number of rows each process will handle
     int rowsPerProcess = N / numProcesses;
@@ -128,30 +134,74 @@ int main(int argc, char* argv[]) {
     const char* path = "/home/cluser/wd";
     const char* fileA = "matrixA.txt";
     const char* fileB = "matrixB.txt";
-    const char* fileResult = "resultMatrix.txt";
 
     // File paths for matrices A, B, and the result
     char pathA[100], pathB[100], pathResult[100];
     sprintf(pathA, "%s/%s", path, fileA);
     sprintf(pathB, "%s/%s", path, fileB);
-    sprintf(pathResult, "%s/%s", path, fileResult);
 
     if (rank == 0) {
+        // Head node generates matrices A and B
+        printf("Rank %d: Generating matrices A and B\n", rank);
+        fillMatrix(A, N);
+        fillMatrix(B, N);
+        printf("Rank %d: Saving matrix A to: %s\n", rank, pathA);
         saveMatrixToFile(A, N, N, pathA);
+        printf("Rank %d: Saving matrix B to: %s\n", rank, pathB);
         saveMatrixToFile(B, N, N, pathB);
-    }else{
-        // Read matrices A and B directly from the shared directory
-        A = readMatrixFromFile(N, N, pathA);
-        B = readMatrixFromFile(N, N, pathB);
     }
+    
+
+    // Use a barrier to synchronize processes
+    MPI_Barrier(MPI_COMM_WORLD);
+    printf("Rank %d: After Barrier\n", rank);
+    /*
+    // Use MPI I/O to read matrices A and B from files
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_File fileA_handle, fileB_handle;
+    MPI_File_open(MPI_COMM_WORLD, pathA, MPI_MODE_RDONLY, MPI_INFO_NULL, &fileA_handle);
+    MPI_File_open(MPI_COMM_WORLD, pathB, MPI_MODE_RDONLY, MPI_INFO_NULL, &fileB_handle);
+
+    MPI_File_set_view(fileA_handle, 0, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
+    MPI_File_set_view(fileB_handle, 0, MPI_INT, MPI_INT, "native", MPI_INFO_NULL);
+
+    MPI_File_read_all(fileA_handle, &(A[0][0]), N * N, MPI_INT, MPI_STATUS_IGNORE);
+    MPI_File_read_all(fileB_handle, &(B[0][0]), N * N, MPI_INT, MPI_STATUS_IGNORE);
+
+    MPI_File_close(&fileA_handle);
+    MPI_File_close(&fileB_handle);
+
+    */
+
+    // All nodes read matrices A and B directly from the shared directory
+    printf("Rank %d: Reading matrix A from: %s\n", rank, pathA);
+    A = readMatrixFromFile(N, N, pathA);
+    printf("Rank %d: Reading matrix B from: %s\n", rank, pathB);
+    B = readMatrixFromFile(N, N, pathB);
+    
+
+    // Allocate memory for the local result
+    int localRows = endRow - startRow;
+    int** localResult = allocateMatrix(localRows);
+    printf("Rank %d: after allocating localResult \n", rank);
 
     //I write down the machine time
     clock_t start_time = clock();
-
+    
     // Perform matrix multiplication for the assigned rows
-    multiplyMatrices(A, B, result, startRow, endRow, N);
+    multiplyMatrices(A, B, localResult, startRow, endRow, N);
+    printf("Rank %d: after multiplication \n", rank);
+
+    printf("Rank %d: localResult:\n", rank);
+    printMatrix(localResult, localRows, N);
+
+    // Use a barrier to synchronize processes
+    MPI_Barrier(MPI_COMM_WORLD);
+
     // Gather the partial results from all processes to the master process
-    MPI_Gather(&(result[startRow][0]), (endRow - startRow) * N, MPI_INT, &(result[0][0]), (endRow - startRow) * N, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(&(localResult[0][0]), localRows * N, MPI_INT,
+        &(result[startRow][0]), localRows * N, MPI_INT, 0, MPI_COMM_WORLD);
+    printf("Rank %d: after gathering \n", rank);
 
     //I write down the machine time
     clock_t end_time = clock();
@@ -159,27 +209,33 @@ int main(int argc, char* argv[]) {
     double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
 
     //printing logic
-    if (rank == 0 && verbose==1 && N<20) {
+    if (rank == 0 && verbose == 1 && N < 20) {
         printf("\n\nMatrix A:\n");
-        printMatrix(A,N,N);
-        
+        printMatrix(A, N, N);
+
         printf("\n\nMatrix B:\n");
-        printMatrix(B,N,N);
-        
+        printMatrix(B, N, N);
+
         printf("\n\nResult Matrix:\n");
-        printMatrix(result,N,N);
+        printMatrix(result, N, N);
     }
 
-    //Result
-    printf("%.6f\n", elapsed_time);
+    if (rank == 0) {
+        // Print the elapsed time
+        printf("%.6f\n", elapsed_time);
+        printf("Rank %d: after time print \n", rank);
+    }
 
+    // Deallocate memory for local result
+    deallocateMatrix(localResult, localRows);
+    printf("Rank %d: after deallocation of localResult \n", rank);
     // Deallocate memory
     deallocateMatrix(A, N);
     deallocateMatrix(B, N);
     deallocateMatrix(result, N);
 
-    // Finalize MPI
     MPI_Finalize();
+    printf("Rank %d: after MIP finalize \n", rank);
 
     return 0;
 }
