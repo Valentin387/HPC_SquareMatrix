@@ -128,18 +128,18 @@ int main(int argc, char *argv[]) {
     }
 
     // Calculate the number of rows for the current process
-    int local_rows = (rank == size - 1) ? rows_per_process + extra_rows : rows_per_process;
+    int local_rows = (rank == size - 1) ? rows_per_process + 0 : rows_per_process;
 
     MPI_Gather(
-        result + start_row * length, 
-        local_rows * length, 
-        MPI_INT, 
-        gathered_result, 
-        local_rows * length, 
-        MPI_INT, 
-        0, 
-        MPI_COMM_WORLD
-        );
+        result + start_row * length,   // Send buffer: the local portion of the result array for the current process
+        local_rows * length,           // Number of elements to send from the send buffer
+        MPI_INT,                       // Data type of each element in the send buffer (integer in this case)
+        gathered_result,               // Receive buffer: the buffer where the root process will gather data
+        local_rows * length,           // Number of elements to receive from each process
+        MPI_INT,                       // Data type of each element in the receive buffer (integer in this case)
+        0,                             // Root process (the process that will receive the gathered data)
+        MPI_COMM_WORLD                 // Communicator (in this case, the world communicator)
+    );
 
     if (rank == 0) {
         clock_gettime(CLOCK_MONOTONIC, &end);
