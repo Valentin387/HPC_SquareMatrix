@@ -68,6 +68,14 @@ int main(int argc, char *argv[]) {
     int verbose = atoi(argv[2]);
     int max_number = 100;
 
+    if (length % size != 0) {
+        if (rank == 0) {
+            fprintf(stderr, "Error: matrix size must be divisible by the number of processes, (idk why)\n");   
+        }
+        MPI_Finalize();
+        return 1;
+    }
+
     if ( length < size){
         if (rank == 0) {
             fprintf(stderr, "Error: matrix size must be equal or greater than the number of processes\n");
@@ -104,7 +112,7 @@ int main(int argc, char *argv[]) {
     int extra_rows = length % size;
     int start_row = rank * rows_per_process;
     int end_row = start_row + rows_per_process + (rank == size - 1 ? extra_rows : 0);
-    printf("Rank %d: start_row = %d, end_row = %d\n", rank, start_row, end_row);
+    //printf("Rank %d: start_row = %d, end_row = %d\n", rank, start_row, end_row);
 
     if (rank == 0){
         clock_gettime(CLOCK_MONOTONIC, &start);
@@ -128,7 +136,9 @@ int main(int argc, char *argv[]) {
     }
 
     // Calculate the number of rows for the current process
-    int local_rows = (rank == size - 1) ? rows_per_process + 0 : rows_per_process;
+    int local_rows = (rank == size - 1) ? rows_per_process + extra_rows : rows_per_process;
+    //printf("Rank %d: local_rows = %d\n", rank, local_rows);
+    //printf("Rank %d: local_rows * length = %d\n", rank, local_rows * length);
 
     MPI_Gather(
         result + start_row * length,   // Send buffer: the local portion of the result array for the current process
