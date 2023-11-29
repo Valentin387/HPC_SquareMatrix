@@ -26,6 +26,26 @@ void fill_matrix(int *matrix, int N) {
     }
 }
 
+void save_matrix_to_file(int *matrix, int length, const char *filename) {
+    FILE *file = fopen(filename, "wb");
+    if (file != NULL) {
+        fwrite(matrix, sizeof(int), length * length, file);
+        fclose(file);
+    } else {
+        fprintf(stderr, "Error opening file for writing: %s\n", filename);
+    }
+}
+
+void read_matrix_from_file(int *matrix, int length, const char *filename) {
+    FILE *file = fopen(filename, "rb");
+    if (file != NULL) {
+        fread(matrix, sizeof(int), length * length, file);
+        fclose(file);
+    } else {
+        fprintf(stderr, "Error opening file for reading: %s\n", filename);
+    }
+}
+
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
 
@@ -53,17 +73,30 @@ int main(int argc, char *argv[]) {
     int *matrixA = (int *)malloc(length * length * sizeof(int));
     int *matrixB = (int *)malloc(length * length * sizeof(int));
     int *result = (int *)malloc(length * length * sizeof(int));
+    int *gathered_result = NULL;
 
-    fill_matrix(matrixA, length);
-    fill_matrix(matrixB, length);
+    if (rank == 0) {
+        // Process 0 fills matrices A and B and saves them to a file
+        fill_matrix(matrixA, length);
+        fill_matrix(matrixB, length);
+
+        // Save matrices to file
+        save_matrix_to_file(matrixA, length, "/home/cluser/wd/matrixA.bin");
+        save_matrix_to_file(matrixB, length, "/home/cluser/wd/matrixB.bin");
+    }
 
     MPI_Barrier(MPI_COMM_WORLD);
     clock_gettime(CLOCK_MONOTONIC, &start);
 
+    // All processes read matrices A and B from files
+    read_matrix_from_file(matrixA, length, "/home/cluser/wd/matrixA.bin");
+    read_matrix_from_file(matrixB, length, "/home/cluser/wd/matrixB.bin");
+
     int rows_per_process = length / size;
     int extra_rows = length % size;
-    int start_row = rank * rows_per_process + (rank < extra_rows ? rank : extra_rows);
-    int end_row = start_row + rows_per_process + (rank < extra_rows ? 1 : 0);
+    int start_row = rank * rows_per_process;
+    int end_row = start_row + rows_per_process + (rank < size - 1 ? 0 : extra_rows);
+    printf("Rank %d: start_row = %d, end_row = %d\n", rank, start_row, end_row);
 
     for (int i = start_row; i < end_row; i++) {
         for (int j = 0; j < length; j++) {
@@ -75,6 +108,13 @@ int main(int argc, char *argv[]) {
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
+
+    // Gather the results to the root process
+    if (rank == 0) {
+        gathered_result = (int *)malloc(length * length * sizeof(int));
+    }
+
+    MPI_Gather(result + start_row * length, rows_per_process * length, MPI_INT, gathered_result, rows_per_process * length, MPI_INT, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         clock_gettime(CLOCK_MONOTONIC, &end);
@@ -90,7 +130,7 @@ int main(int argc, char *argv[]) {
             mostrarMatriz(matrixB, length);
 
             printf("Result:\n");
-            mostrarMatriz(result, length);
+            mostrarMatriz(gathered_result, length);
         }
     }
 
@@ -98,6 +138,7 @@ int main(int argc, char *argv[]) {
     free(matrixA);
     free(matrixB);
     free(result);
+    free(gathered_result);
 
     return 0;
 }
