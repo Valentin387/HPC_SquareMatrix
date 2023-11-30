@@ -1,54 +1,65 @@
-#include <stdio.h> 
-#include <stdlib.h> 
-#include <mpi.h> 
+#include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
+#include <time.h>
+#include <mpi.h>
 
-int main(int argc, char *argv[])
-{
-    int done = 0, n, myid, numprocs, I;
-    double PI25DT = 3.141592653589793238462643;
-    double mypi, pi, h, sum, x, a;
-    
+int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &numprocs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-    
-    while (!done)
-    {
-        if (myid == 0)
-        {
-            printf("Enter the number of intervals: (0 quits) ");
-            scanf("%d", &n);
+
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    int n = atoi(argv[1]); // Total number of throws - parameter
+    int local_n = n / size; // Number of throws per process
+    int remaining_n = n % size; // Remaining throws to be distributed among processes
+
+    int local_hits = 0; // Number of hits for each process
+    int global_hits; // Total number of hits across all processes
+
+    srand(time(NULL) + rank); // Seed the random number generator with the current time and rank
+
+    // I write down the machine time only for rank 0
+    double start_time;
+    if (rank == 0) {
+        start_time = MPI_Wtime();
+    }
+
+    // Calculate the number of throws for the current process
+    int throws_for_current_process = local_n + (rank == size - 1 ? remaining_n : 0);
+    //printf("Rank %d will throw %d darts\n", rank, throws_for_current_process);
+
+    int i;
+    for (i = 0; i < throws_for_current_process; i++) {
+        double x = (double)rand() / RAND_MAX; // Random x-coordinate between 0 and 1
+        double y = (double)rand() / RAND_MAX; // Random y-coordinate between 0 and 1
+
+        double distance = x * x + y * y; // Calculate the distance from the origin
+
+        if (distance < 1.0) {
+            local_hits++; // Increment the number of hits if the point is inside the circle
         }
+    }
+    //printf("Rank %d has %d hits\n", rank, local_hits);
 
-        MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    // Sum the hits across all processes
+    MPI_Reduce(&local_hits, &global_hits, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-        if (n == 0)
-        {
-            done = 1;
-        }
-        else
-        {
-            h = 1.0 / (double)n;
-            sum = 0.0;
+    // I write down the machine time only for rank 0
+    if (rank == 0) {
+        double end_time = MPI_Wtime();
+        // I subtract the 2 times to find out the computing duration
+        double elapsed_time = end_time - start_time;
 
-            for (I = myid + 1; I <= n; I += numprocs)
-            {
-                x = h * ((double)I - 0.5);
-                sum += 4.0 / (1.0 + x * x);
-            }
+        //printf("Total number of hits: %d\n", global_hits);
 
-            mypi = h * sum;
+        double pi_approximation = 4.0 * (double)global_hits / n; // Approximate pi using the hits and throws
 
-            MPI_Reduce(&mypi, &pi, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-
-            if (myid == 0)
-            {
-                printf("pi is approximately %.16f, Error is %.16f\n", pi, fabs(pi - PI25DT));
-            }
-        }
+        printf("Approximated value of pi: %lf Time: %.6f\n", pi_approximation, elapsed_time);
     }
 
     MPI_Finalize();
+
     return 0;
 }
